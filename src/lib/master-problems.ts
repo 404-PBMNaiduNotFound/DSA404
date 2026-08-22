@@ -2,7 +2,7 @@
  * MASTER DSA PROBLEM DATABASE — single source of truth.
  *
  * Generated from Product_Based_DSA_Learning_Roadmap.xlsx (Sheets 01_Learning_Roadmap & 02_Topic_Order).
- * 28 Major Topics in dependency-aware learning order, 357 Practice Problems.
+ * 28 Major Topics in dependency-aware learning order, 381 Practice Problems.
  */
 
 import type { Difficulty } from "./types";
@@ -113,29 +113,42 @@ export const CORE_SECTIONS: CoreSection[] = [
   {
     topicNo: 4,
     topic: "Strings",
-    subtopics: ["Strings", "String Matching", "Palindrome Patterns"],
+    subtopics: ["Strings", "String Manipulation", "String Matching", "Palindrome Patterns", "String Manipulation / Parsing", "String Design / Serialization"],
     problems: [
       { id: "LR-062", name: "Manacher's Algorithm", difficulty: "Easy", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/manachers-algorithm-linear-time-longest-palindromic-substring-part-1/", pattern: "Strings", level: "Level 1" },
       { id: "LR-063", name: "Longest Prefix Suffix", difficulty: "Easy", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/longest-prefix-also-suffix/", pattern: "String Matching", level: "Level 1" },
       { id: "LR-064", name: "Same Strings", difficulty: "Medium", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/program-to-check-if-two-strings-are-same-or-not/", pattern: "Strings", level: "Level 2" },
+      { id: "LR-358", name: "Reverse String", difficulty: "Easy", platform: "LeetCode", link: "https://leetcode.com/problems/reverse-string/", pattern: "String Manipulation", level: "Level 1" },
+      { id: "LR-359", name: "Reverse Words in a String III", difficulty: "Easy", platform: "LeetCode", link: "https://leetcode.com/problems/reverse-words-in-a-string-iii/", pattern: "String Manipulation", level: "Level 1" },
+      { id: "LR-360", name: "Rotate String", difficulty: "Easy", platform: "LeetCode", link: "https://leetcode.com/problems/rotate-string/", pattern: "String Manipulation", level: "Level 1" },
+      { id: "LR-361", name: "String Compression", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/string-compression/", pattern: "String Manipulation", level: "Level 2" },
       { id: "LR-065", name: "Multiply Large Numbers", difficulty: "Medium", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/multiply-large-numbers-represented-as-strings/", pattern: "Strings", level: "Level 2" },
       { id: "LR-066", name: "URLify", difficulty: "Medium", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/urlify-a-given-string-replace-spaces/", pattern: "Strings", level: "Level 2" },
       { id: "LR-067", name: "Longest Palindromic Substrings", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/longest-palindromic-substring/", pattern: "Palindrome Patterns", level: "Level 2" },
       { id: "LR-068", name: "Palindromic Substrings", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/palindromic-substrings/", pattern: "Palindrome Patterns", level: "Level 2" },
       { id: "LR-069", name: "Palindrome", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/valid-palindrome/", pattern: "Palindrome Patterns", level: "Level 2" },
       { id: "LR-070", name: "Min Repeats for Substring", difficulty: "Hard", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/minimum-number-of-times-a-has-to-be-repeated-such-that-b-is-a-substring-of-it/", pattern: "String Matching", level: "Level 3" },
+      { id: "LR-362", name: "Find the Index of the First Occurrence in a String", difficulty: "Easy", platform: "LeetCode", link: "https://leetcode.com/problems/find-the-index-of-the-first-occurrence-in-a-string/", pattern: "KMP Pattern Matching", level: "Level 2" },
+      { id: "LR-363", name: "Repeated Substring Pattern", difficulty: "Easy", platform: "LeetCode", link: "https://leetcode.com/problems/repeated-substring-pattern/", pattern: "String Matching", level: "Level 2" },
+      { id: "LR-364", name: "Repeated String Match", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/repeated-string-match/", pattern: "String Matching", level: "Level 2" },
+      { id: "LR-365", name: "String to Integer (atoi)", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/string-to-integer-atoi/", pattern: "String Manipulation / Parsing", level: "Level 2" },
+      { id: "LR-366", name: "Zigzag Conversion", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/zigzag-conversion/", pattern: "String Manipulation", level: "Level 2" },
+      { id: "LR-367", name: "Encode and Decode Strings", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/encode-and-decode-strings/", pattern: "String Design / Serialization", level: "Level 2" },
+      { id: "LR-368", name: "Text Justification", difficulty: "Hard", platform: "LeetCode", link: "https://leetcode.com/problems/text-justification/", pattern: "String Manipulation", level: "Level 3" },
+      { id: "LR-369", name: "Valid Number", difficulty: "Hard", platform: "LeetCode", link: "https://leetcode.com/problems/valid-number/", pattern: "String Manipulation / Parsing", level: "Level 3" },
       { id: "LR-071", name: "Palindrome Substring Queries", difficulty: "Hard", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/palindrome-substring-queries/", pattern: "Palindrome Patterns", level: "Level 3" },
     ],
   },
   {
     topicNo: 5,
     topic: "Hashing",
-    subtopics: ["Hashing"],
+    subtopics: ["Hashing", "Frequency Counting"],
     problems: [
       { id: "LR-072", name: "Roman to Integer", difficulty: "Easy", platform: "LeetCode", link: "https://leetcode.com/problems/roman-to-integer/", pattern: "Hashing", level: "Level 1" },
       { id: "LR-073", name: "Separate Chaining", difficulty: "Easy", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/c-program-hashing-chaining/", pattern: "Hashing", level: "Level 1" },
       { id: "LR-074", name: "Anagrams", difficulty: "Easy", platform: "LeetCode", link: "https://leetcode.com/problems/valid-anagram/", pattern: "Hashing", level: "Level 1" },
       { id: "LR-075", name: "Most Frequent", difficulty: "Easy", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/frequent-element-array/", pattern: "Hashing", level: "Level 1" },
+      { id: "LR-370", name: "First Unique Character in a String", difficulty: "Easy", platform: "LeetCode", link: "https://leetcode.com/problems/first-unique-character-in-a-string/", pattern: "Frequency Counting", level: "Level 1" },
       { id: "LR-076", name: "Two Sum", difficulty: "Easy", platform: "LeetCode", link: "https://leetcode.com/problems/two-sum/", pattern: "Hashing", level: "Level 1" },
       { id: "LR-077", name: "Contains Duplicate", difficulty: "Easy", platform: "LeetCode", link: "https://leetcode.com/problems/contains-duplicate/", pattern: "Hashing", level: "Level 1" },
       { id: "LR-078", name: "Isomorphic Strings", difficulty: "Easy", platform: "LeetCode", link: "https://leetcode.com/problems/isomorphic-strings/", pattern: "Hashing", level: "Level 1" },
@@ -170,6 +183,7 @@ export const CORE_SECTIONS: CoreSection[] = [
     subtopics: ["Two Pointers"],
     problems: [
       { id: "LR-095", name: "Two Sum II - Sorted Array", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/two-sum-ii-input-array-is-sorted/", pattern: "Two Pointers", level: "Level 2" },
+      { id: "LR-371", name: "Valid Palindrome II", difficulty: "Easy", platform: "LeetCode", link: "https://leetcode.com/problems/valid-palindrome-ii/", pattern: "Two Pointers", level: "Level 2" },
       { id: "LR-096", name: "Sort Colors", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/sort-colors/", pattern: "Two Pointers", level: "Level 2" },
       { id: "LR-097", name: "3Sum", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/3sum/", pattern: "Two Pointers", level: "Level 2" },
       { id: "LR-098", name: "Container With Most Water", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/container-with-most-water/", pattern: "Two Pointers", level: "Level 2" },
@@ -190,6 +204,7 @@ export const CORE_SECTIONS: CoreSection[] = [
       { id: "LR-106", name: "Minimum Window Subsequence", difficulty: "Medium", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/minimum-window-subsequence/", pattern: "Sliding Window", level: "Level 2" },
       { id: "LR-107", name: "Smallest containing 0, 1 and 2", difficulty: "Medium", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/smallest-window-containing-0-1-and-2/", pattern: "Sliding Window", level: "Level 2" },
       { id: "LR-108", name: "Count Anagrams", difficulty: "Medium", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/count-occurrences-of-anagrams/", pattern: "Sliding Window", level: "Level 2" },
+      { id: "LR-372", name: "Find All Anagrams in a String", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/find-all-anagrams-in-a-string/", pattern: "String + Sliding Window", level: "Level 2" },
       { id: "LR-109", name: "Full Distinct Subarrays", difficulty: "Medium", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/count-of-subarrays-having-exactly-k-distinct-elements/", pattern: "Sliding Window", level: "Level 2" },
       { id: "LR-110", name: "Max Consecutive Ones", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/max-consecutive-ones-iii/", pattern: "Sliding Window", level: "Level 2" },
       { id: "LR-111", name: "Maximize Ones", difficulty: "Medium", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/find-zeroes-to-be-flipped-so-that-number-of-consecutive-1s-is-maximized/", pattern: "Sliding Window", level: "Level 2" },
@@ -226,6 +241,9 @@ export const CORE_SECTIONS: CoreSection[] = [
       { id: "LR-128", name: "M bouquets", difficulty: "Medium", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/minimum-days-to-make-m-bouquets/", pattern: "Binary Search on Answer", level: "Level 2" },
       { id: "LR-129", name: "kth in Multiplication Table", difficulty: "Medium", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/kth-smallest-number-in-multiplication-table/", pattern: "Binary Search on Answer", level: "Level 2" },
       { id: "LR-130", name: "Minimum Number of Days to Make m Bouquets", difficulty: "Hard", platform: "LeetCode", link: "https://leetcode.com/problems/minimum-number-of-days-to-make-m-bouquets/", pattern: "Binary Search", level: "Level 3" },
+      { id: "LR-377", name: "Binary Search", difficulty: "Easy", platform: "LeetCode", link: "https://leetcode.com/problems/binary-search/", pattern: "Classic Binary Search", level: "Level 1" },
+      { id: "LR-378", name: "Find First and Last Position of Element in Sorted Array", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/find-first-and-last-position-of-element-in-sorted-array/", pattern: "Lower Bound / Upper Bound", level: "Level 2" },
+      { id: "LR-379", name: "Find Peak Element", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/find-peak-element/", pattern: "Binary Search / Peak", level: "Level 2" },
     ],
   },
   {
@@ -268,6 +286,8 @@ export const CORE_SECTIONS: CoreSection[] = [
       { id: "LR-156", name: "Daily Temperatures", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/daily-temperatures/", pattern: "Monotonic Stack", level: "Level 2" },
       { id: "LR-157", name: "Next Greater Element II", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/next-greater-element-ii/", pattern: "Monotonic Stack", level: "Level 2" },
       { id: "LR-158", name: "Largest Rectangle in Histogram", difficulty: "Hard", platform: "LeetCode", link: "https://leetcode.com/problems/largest-rectangle-in-histogram/", pattern: "Monotonic Stack", level: "Level 3" },
+      { id: "LR-376", name: "Online Stock Span", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/online-stock-span/", pattern: "Monotonic Stack / Stock Span", level: "Level 2" },
+      { id: "LR-380", name: "Infix to Postfix Conversion", difficulty: "Medium", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/stack-set-2-infix-to-postfix/", pattern: "Infix → Postfix", level: "Level 2" },
     ],
   },
   {
@@ -279,6 +299,7 @@ export const CORE_SECTIONS: CoreSection[] = [
       { id: "LR-160", name: "First non-repeating in a stream", difficulty: "Medium", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/find-first-non-repeating-character-stream-characters/", pattern: "Queue / Deque", level: "Level 2" },
       { id: "LR-161", name: "Deque", difficulty: "Medium", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/deque-data-structure/", pattern: "Queue / Deque", level: "Level 2" },
       { id: "LR-162", name: "Longest Subarray with Difference \u2264 X", difficulty: "Hard", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/longest-subarray-in-which-absolute-difference-between-any-two-element-is-not-greater-than-x/", pattern: "Monotonic Deque", level: "Level 3" },
+      { id: "LR-381", name: "Design Hit Counter", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/design-hit-counter/", pattern: "Queue / Time Window Design", level: "Level 2" },
     ],
   },
   {
@@ -298,6 +319,8 @@ export const CORE_SECTIONS: CoreSection[] = [
       { id: "LR-172", name: "Word Search", difficulty: "Medium", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/check-if-a-word-exists-in-a-grid-or-not/", pattern: "Constraint Backtracking", level: "Level 2" },
       { id: "LR-173", name: "Knight's Tour", difficulty: "Hard", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/the-knights-tour-problem/", pattern: "Backtracking", level: "Level 3" },
       { id: "LR-174", name: "N Queen Problem", difficulty: "Hard", platform: "LeetCode", link: "https://leetcode.com/problems/n-queens/", pattern: "Backtracking", level: "Level 3" },
+      { id: "LR-374", name: "Combination Sum", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/combination-sum/", pattern: "Backtracking / Combinations", level: "Level 2" },
+      { id: "LR-375", name: "Palindrome Partitioning", difficulty: "Medium", platform: "LeetCode", link: "https://leetcode.com/problems/palindrome-partitioning/", pattern: "Backtracking / Partitioning", level: "Level 2" },
     ],
   },
   {
@@ -375,6 +398,7 @@ export const CORE_SECTIONS: CoreSection[] = [
       { id: "LR-228", name: "Spiral Level Order", difficulty: "Hard", platform: "GeeksforGeeks", link: "https://www.geeksforgeeks.org/dsa/level-order-traversal-in-spiral-form/", pattern: "Tree DFS", level: "Level 3" },
       { id: "LR-229", name: "Binary Tree Maximum Path Sum", difficulty: "Hard", platform: "LeetCode", link: "https://leetcode.com/problems/binary-tree-maximum-path-sum/", pattern: "Tree DFS", level: "Level 3" },
       { id: "LR-230", name: "Kth Ancestor of a Tree Node", difficulty: "Hard", platform: "LeetCode", link: "https://leetcode.com/problems/kth-ancestor-of-a-tree-node/", pattern: "LCA / Ancestor Patterns", level: "Level 3" },
+      { id: "LR-373", name: "Serialize and Deserialize Binary Tree", difficulty: "Hard", platform: "LeetCode", link: "https://leetcode.com/problems/serialize-and-deserialize-binary-tree/", pattern: "Tree Serialization", level: "Level 3" },
     ],
   },
   {
