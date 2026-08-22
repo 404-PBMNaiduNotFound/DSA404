@@ -9,7 +9,7 @@ import {
   orderBy,
   serverTimestamp,
 } from "firebase/firestore";
-import { db as firestore } from "@/integrations/firebase/client";
+import { auth, db as firestore } from "@/integrations/firebase/client";
 
 export interface TopicReminder {
   id: string;
@@ -33,7 +33,8 @@ export async function fetchTopicReminders(uid?: string | null): Promise<TopicRem
     const rawLocal = localStorage.getItem(LOCAL_STORAGE_KEY);
     const localItems: TopicReminder[] = rawLocal ? JSON.parse(rawLocal) : [];
 
-    if (!uid || !firestore) return localItems;
+    const currentUser = auth?.currentUser;
+    if (!uid || !firestore || !currentUser || currentUser.uid !== uid) return localItems;
 
     try {
       const col = remindersCol(uid);
@@ -73,7 +74,8 @@ export async function addTopicReminder(
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
   }
 
-  if (uid && firestore) {
+  const currentUser = auth?.currentUser;
+  if (uid && firestore && currentUser && currentUser.uid === uid) {
     try {
       const ref = doc(firestore, "users", uid, "reminders", newId);
       const dataToSave: Record<string, any> = {
@@ -110,7 +112,8 @@ export async function deleteTopicReminder(
     }
   }
 
-  if (uid && firestore) {
+  const currentUser = auth?.currentUser;
+  if (uid && firestore && currentUser && currentUser.uid === uid) {
     try {
       const ref = doc(firestore, "users", uid, "reminders", reminderId);
       await deleteDoc(ref);
@@ -133,7 +136,8 @@ export async function markTopicReminderTriggered(
     }
   }
 
-  if (uid && firestore) {
+  const currentUser = auth?.currentUser;
+  if (uid && firestore && currentUser && currentUser.uid === uid) {
     try {
       const ref = doc(firestore, "users", uid, "reminders", reminderId);
       await updateDoc(ref, { triggered: true });
@@ -142,4 +146,5 @@ export async function markTopicReminderTriggered(
     }
   }
 }
+
 

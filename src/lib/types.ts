@@ -19,6 +19,8 @@ export interface Problem {
   estTime: number;
   done: boolean;
   isHard: boolean;
+  /** Roadmap level, e.g. "Level 1" | "Level 2" | "Level 3" */
+  level?: string;
   /** Flagged from Today for a later look — shows up in the Review tab. */
   forReview?: boolean;
   /** Day number from which this problem was borrowed. */

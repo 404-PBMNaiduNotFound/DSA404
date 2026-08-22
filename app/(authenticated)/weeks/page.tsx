@@ -99,17 +99,17 @@ export default function WeeksPage() {
     monthKeys.includes(currentMonthKey) ? currentMonthKey : monthKeys[0] ?? "",
   );
 
-  const SkippedSection = () =>
-    skippedDays.length > 0 ? (
+  const SkippedSection = ({ list }: { list: Day[] }) =>
+    list.length > 0 ? (
       <div className="rounded-xl border border-dashed border-border bg-card/60 p-4">
         <div className="mb-3 flex items-baseline justify-between gap-3">
           <h3 className="font-display font-semibold text-muted-foreground">Skipped</h3>
           <span className="text-xs tabular-nums text-muted-foreground">
-            {skippedDays.length} day{skippedDays.length === 1 ? "" : "s"}
+            {list.length} day{list.length === 1 ? "" : "s"}
           </span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {skippedDays.map((d) => {
+          {list.map((d) => {
             const total = d.problems.length;
             const done = d.problems.filter((p) => p.done).length;
             return (
@@ -316,6 +316,10 @@ export default function WeeksPage() {
   if (viewMode === "week") {
     const week = weeks[safeWeekIdx] ?? [];
     const stats = weekStats(week);
+    const weekStart = week[0]?.date ?? "";
+    const weekEnd = week[week.length - 1]?.date ?? "";
+    const weekSkipped = skippedDays.filter((d) => d.date >= weekStart && d.date <= weekEnd);
+
     return (
       <div className="space-y-6">
         <FilterBar />
@@ -362,7 +366,7 @@ export default function WeeksPage() {
             Next week →
           </Button>
         </div>
-        <SkippedSection />
+        <SkippedSection list={weekSkipped} />
       </div>
     );
   }
@@ -373,6 +377,8 @@ export default function WeeksPage() {
     const monthWeeks = groupIntoWeeks(mDays);
     const stats = monthStats(mDays);
     const monthIdx = monthKeys.indexOf(selectedMonthKey);
+    const monthSkipped = skippedDays.filter((d) => d.date.startsWith(selectedMonthKey));
+
     return (
       <div className="space-y-6">
         <FilterBar />
@@ -432,7 +438,7 @@ export default function WeeksPage() {
             Next month →
           </Button>
         </div>
-        <SkippedSection />
+        <SkippedSection list={monthSkipped} />
       </div>
     );
   }
@@ -486,7 +492,6 @@ export default function WeeksPage() {
           );
         })}
       </div>
-      <SkippedSection />
     </div>
   );
 }

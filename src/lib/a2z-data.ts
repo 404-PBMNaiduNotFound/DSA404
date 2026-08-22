@@ -16,6 +16,7 @@ export interface SeedProblem {
   /** platform */ p: string;
   /** verified direct link to the canonical problem page */ l?: string;
   /** true when `l` is a confirmed direct link (not a search fallback) */ linkVerified?: boolean;
+  /** level */ lvl?: string;
 }
 
 export interface Section {
@@ -34,7 +35,7 @@ function dominantLevel(problems: { level: string }[]): string {
   return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "Level 1";
 }
 
-/** The 338-problem core roadmap (from 404sheet.xlsx), grouped by topic. */
+/** The 374-problem core roadmap, grouped by topic. */
 export const SECTIONS: Section[] = CORE_SECTIONS.map((sec) => ({
   section: sec.topic,
   title: sec.topic,
@@ -46,5 +47,6 @@ export const SECTIONS: Section[] = CORE_SECTIONS.map((sec) => ({
     p: p.platform,
     l: p.link,
     linkVerified: true,
+    lvl: p.level,
   })),
 }));

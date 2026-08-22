@@ -84,32 +84,10 @@ export function usePWAInstall() {
         console.error("Error triggering install prompt:", err);
       }
     } else {
-      // Fallback: open Chrome install modal instructions
+      // Fallback: open Chrome PWA install guide modal
       setIsModalOpen(true);
     }
   }, [deferredPrompt, isStandalone, launchApp]);
-
-  const downloadApk = useCallback(() => {
-    // If browser prompt available, prompt app install directly
-    if (deferredPrompt) {
-      deferredPrompt.prompt().catch(() => {
-        setIsModalOpen(true);
-      });
-      return;
-    }
-
-    // Trigger download & open install guide modal immediately
-    const link = document.createElement("a");
-    link.href = "/api/download-apk";
-    link.download = "DSA404-App.apk";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    setIsModalOpen(true);
-  }, [deferredPrompt]);
-
-
 
   return {
     canInstall: Boolean(deferredPrompt),
@@ -118,9 +96,9 @@ export function usePWAInstall() {
     isAndroid,
     isChrome,
     promptInstall,
-    downloadApk,
     launchApp,
     isModalOpen,
     setIsModalOpen,
   };
 }
+

@@ -5,14 +5,12 @@ import { ChromeInstallModal } from "@/components/ChromeInstallModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Download,
   Smartphone,
   CheckCircle2,
   Zap,
   Bell,
   ShieldCheck,
   Sparkles,
-  ExternalLink,
 } from "lucide-react";
 
 function ChromeIcon({ className }: { className?: string }) {
@@ -34,11 +32,15 @@ export function InstallApkSection() {
     isStandalone,
     isIOS,
     promptInstall,
-    downloadApk,
     launchApp,
     isModalOpen,
     setIsModalOpen,
   } = usePWAInstall();
+
+  // If already installed as PWA / standalone app, don't show the install section at all ("if already done then no need")
+  if (isStandalone) {
+    return null;
+  }
 
   return (
     <section className="relative my-14 overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-b from-card/90 via-card to-card/60 p-6 sm:p-10 shadow-xl backdrop-blur-md">
@@ -51,7 +53,7 @@ export function InstallApkSection() {
         <div className="lg:col-span-7 space-y-4 text-left">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-mono text-primary font-medium">
             <ChromeIcon className="size-3.5" />
-            Chrome Web APK & Mobile App
+            Chrome PWA App
           </div>
 
           <h2 className="font-display text-2xl sm:text-4xl font-bold tracking-tight leading-tight">
@@ -63,12 +65,25 @@ export function InstallApkSection() {
             Launch directly from your home screen or desktop with zero browser clutter and ultra-fast loading.
           </p>
 
+          {/* Verified Safe PWA Note */}
+          <div className="flex items-start gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-600 dark:text-emerald-400">
+            <ShieldCheck className="size-4.5 shrink-0 text-emerald-500 mt-0.5" />
+            <div className="space-y-0.5">
+              <span className="font-bold font-mono uppercase tracking-wider text-[11px] block text-emerald-500">
+                100% Safe & Verified · Not an APK File
+              </span>
+              <p className="text-muted-foreground text-[11px] leading-relaxed">
+                This app runs directly inside your Google Chrome browser as a PWA. When selecting <strong>"Install app"</strong> in Chrome menu, it installs as a full standalone Application on your device (not a browser shortcut widget), requiring no APK file downloads.
+              </p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
             <div className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-muted/30 p-3">
               <Zap className="size-4 text-amber-500 shrink-0 mt-0.5" />
               <div>
                 <h4 className="text-xs font-semibold text-foreground font-mono">1-Click Chrome Install</h4>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Install natively via Web APK without APK permissions hassle.</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Install directly from your browser without file downloads.</p>
               </div>
             </div>
 
@@ -83,7 +98,7 @@ export function InstallApkSection() {
             <div className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-muted/30 p-3">
               <Smartphone className="size-4 text-emerald-500 shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-xs font-semibold text-foreground font-mono">Native Mobile Frame</h4>
+                <h4 className="text-xs font-semibold text-foreground font-mono">Native App Frame</h4>
                 <p className="text-[11px] text-muted-foreground mt-0.5">Full screen mode tuned specifically for mobile DSA practice.</p>
               </div>
             </div>
@@ -91,55 +106,31 @@ export function InstallApkSection() {
             <div className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-muted/30 p-3">
               <ShieldCheck className="size-4 text-purple-500 shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-xs font-semibold text-foreground font-mono">Direct APK Fallback</h4>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Download standalone APK file anytime for instant installation.</p>
+                <h4 className="text-xs font-semibold text-foreground font-mono">Fast & Lightweight</h4>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Launches in milliseconds using cached PWA web tech.</p>
               </div>
             </div>
           </div>
 
           {/* Action buttons */}
           <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            {isStandalone ? (
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full">
-                <Button
-                  onClick={launchApp}
-                  size="lg"
-                  className="font-mono text-xs sm:text-sm font-semibold justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20"
-                >
-                  <CheckCircle2 className="size-4" />
-                  App Installed · Open App
-                </Button>
-                <Button
-                  onClick={() => setIsModalOpen(true)}
-                  variant="outline"
-                  size="lg"
-                  className="font-mono text-xs sm:text-sm justify-center gap-2 border-primary/30 text-primary hover:bg-primary/10"
-                >
-                  <ChromeIcon className="size-4" />
-                  Re-install App / Guide
-                </Button>
-              </div>
-            ) : (
-              <>
-                <Button
-                  onClick={promptInstall}
-                  size="lg"
-                  className="font-mono text-xs sm:text-sm font-semibold justify-center gap-2 shadow-lg shadow-primary/20"
-                >
-                  <ChromeIcon className="size-4" />
-                  Install App from Chrome
-                </Button>
-                <Button
-                  onClick={downloadApk}
-                  variant="outline"
-                  size="lg"
-                  className="font-mono text-xs sm:text-sm justify-center gap-2"
-                >
-                  <Download className="size-4" />
-                  Download APK File
-                </Button>
-              </>
-            )}
+            <Button
+              onClick={promptInstall}
+              size="lg"
+              className="font-mono text-xs sm:text-sm font-semibold justify-center gap-2 shadow-lg shadow-primary/20"
+            >
+              <ChromeIcon className="size-4" />
+              Install App from Chrome
+            </Button>
+            <Button
+              onClick={() => setIsModalOpen(true)}
+              variant="outline"
+              size="lg"
+              className="font-mono text-xs sm:text-sm justify-center gap-2"
+            >
+              <Sparkles className="size-4" />
+              View Installation Guide
+            </Button>
           </div>
         </div>
 
@@ -153,7 +144,7 @@ export function InstallApkSection() {
                 </div>
                 <div>
                   <h3 className="font-display text-sm font-bold leading-none">DSA⁴⁰⁴ App</h3>
-                  <span className="text-[11px] font-mono text-muted-foreground">Chrome Web APK v2.4</span>
+                  <span className="text-[11px] font-mono text-muted-foreground">Chrome PWA App</span>
                 </div>
               </div>
               <Badge variant="secondary" className="font-mono text-[10px] bg-primary/10 text-primary border-primary/20">
@@ -164,21 +155,17 @@ export function InstallApkSection() {
             <div className="space-y-2 text-xs font-mono">
               <div className="flex items-center justify-between py-1.5 border-b border-border/30 text-muted-foreground">
                 <span>Installation Source</span>
-                <span className="text-foreground font-semibold">Chrome WebAPK</span>
+                <span className="text-foreground font-semibold">Google Chrome PWA</span>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-border/30 text-muted-foreground">
                 <span>Storage Required</span>
                 <span className="text-foreground font-semibold">&lt; 2 MB</span>
               </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-border/30 text-muted-foreground">
+              <div className="flex items-center justify-between py-1.5 text-muted-foreground">
                 <span>Push Notifications</span>
                 <span className="text-emerald-500 font-semibold flex items-center gap-1">
                   <CheckCircle2 className="size-3" /> Enabled
                 </span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 text-muted-foreground">
-                <span>Direct APK File</span>
-                <span className="text-primary font-semibold">DSA404-App.apk</span>
               </div>
             </div>
 
@@ -196,7 +183,6 @@ export function InstallApkSection() {
       <ChromeInstallModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
-        onDownloadApk={downloadApk}
         onLaunchApp={launchApp}
         isIOS={isIOS}
         isStandalone={isStandalone}
@@ -204,3 +190,4 @@ export function InstallApkSection() {
     </section>
   );
 }
+

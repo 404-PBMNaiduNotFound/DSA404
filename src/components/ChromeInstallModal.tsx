@@ -8,7 +8,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Smartphone, Monitor, Share, PlusSquare, CheckCircle2 } from "lucide-react";
+import { Smartphone, Monitor, Share, PlusSquare, CheckCircle2, ShieldCheck } from "lucide-react";
 
 function ChromeIcon({ className }: { className?: string }) {
   return (
@@ -22,11 +22,9 @@ function ChromeIcon({ className }: { className?: string }) {
   );
 }
 
-
 interface ChromeInstallModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onDownloadApk: () => void;
   onLaunchApp?: () => void;
   isAndroid?: boolean;
   isIOS?: boolean;
@@ -36,7 +34,6 @@ interface ChromeInstallModalProps {
 export function ChromeInstallModal({
   open,
   onOpenChange,
-  onDownloadApk,
   onLaunchApp,
   isAndroid,
   isIOS,
@@ -48,13 +45,13 @@ export function ChromeInstallModal({
         <DialogHeader className="space-y-2 text-left">
           <div className="flex items-center gap-2.5 text-primary font-mono text-xs font-semibold uppercase tracking-wider">
             <ChromeIcon className="size-4 text-primary" />
-            Chrome Web APK Guide
+            Chrome PWA App Guide
           </div>
           <DialogTitle className="font-display text-xl sm:text-2xl font-bold tracking-tight">
             Install DSA404 App
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Follow these quick instructions to add DSA404 directly to your home screen or desktop as a native app.
+            Follow these quick instructions to add DSA404 directly to your home screen or desktop as a Web App.
           </DialogDescription>
         </DialogHeader>
 
@@ -78,8 +75,15 @@ export function ChromeInstallModal({
           </div>
         )}
 
-
         <div className="mt-4 space-y-4 font-sans">
+          {/* Verified Safe Notice */}
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 flex items-start gap-2.5 text-xs text-emerald-600 dark:text-emerald-400">
+            <ShieldCheck className="size-4 text-emerald-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-[11px] uppercase font-mono text-emerald-500">100% Safe & Verified</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Runs directly in your Chrome browser. Not an APK file.</p>
+            </div>
+          </div>
           {/* Android Chrome Instructions */}
           <div className="rounded-xl border border-border/80 bg-muted/40 p-4 space-y-2.5">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -88,8 +92,8 @@ export function ChromeInstallModal({
             </div>
             <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal pl-4">
               <li>Open Chrome menu <strong className="text-foreground">(⋮)</strong> at top right.</li>
-              <li>Tap <strong className="text-foreground">"Add to Home screen"</strong> or <strong className="text-foreground">"Install app"</strong>.</li>
-              <li>Confirm prompt to create native Web APK on home screen.</li>
+              <li>Tap <strong className="text-foreground">"Install app"</strong> (or <strong className="text-foreground">"Add to Home screen"</strong>).</li>
+              <li>Confirm <strong className="text-foreground">"Install"</strong> to install it as a standalone application icon (not a browser shortcut widget).</li>
             </ol>
           </div>
 
@@ -102,8 +106,18 @@ export function ChromeInstallModal({
             <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal pl-4">
               <li>Look for the <strong className="text-foreground">Install App icon (⊕)</strong> right inside the address bar.</li>
               <li>Or click Chrome menu <strong className="text-foreground">(⋮) &gt; Save and share &gt; Install DSA404</strong>.</li>
-              <li>Click <strong className="text-foreground">Install</strong> to launch stand-alone window.</li>
+              <li>Click <strong className="text-foreground">Install</strong> — it launches as a full standalone Application window.</li>
             </ol>
+          </div>
+
+          {/* Pro Tip note about Application vs Widget Shortcut */}
+          <div className="rounded-xl border border-primary/25 bg-primary/5 p-3 text-xs text-foreground/90 space-y-1">
+            <span className="font-bold font-mono text-[11px] text-primary flex items-center gap-1">
+              💡 Standalone Application Mode
+            </span>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              When installing from the Chrome menu, choosing <strong>"Install app"</strong> installs DSA404 as a full, dedicated application on your device rather than a web browser shortcut widget.
+            </p>
           </div>
 
           {/* iOS Safari Instructions */}
@@ -141,16 +155,7 @@ export function ChromeInstallModal({
           </div>
         </div>
 
-        <div className="mt-5 flex flex-col sm:flex-row items-center gap-2.5">
-          <Button
-            onClick={onDownloadApk}
-            variant="default"
-            size="sm"
-            className="w-full sm:w-auto font-mono text-xs gap-2"
-          >
-            <Download className="size-4" />
-            Download APK File
-          </Button>
+        <div className="mt-5 flex justify-end">
           <Button
             onClick={() => onOpenChange(false)}
             variant="outline"
@@ -164,3 +169,4 @@ export function ChromeInstallModal({
     </Dialog>
   );
 }
+

@@ -85,6 +85,7 @@ function toProblem(p: SeedProblem): Problem {
     estTime: estFor(p.d),
     done: false,
     isHard: p.d === "Hard",
+    level: p.lvl ?? "Level 1",
   };
 }
 
@@ -140,16 +141,31 @@ function interleaveWeeklyRevision(
   startPosition = 0,
 ): Day[] {
   const startDow = new Date(`${startDate}T00:00:00Z`).getUTCDay(); // 0 = Sunday
+  const isThuToSun = startDow === 4 || startDow === 5 || startDow === 6 || startDow === 0;
+
   const days: Day[] = [];
   let contentIdx = 0;
   let weekDayNumbers: number[] = [];
   let position = startPosition;
   let dayNumber = startPosition;
+  let firstSundayHandled = false;
 
   while (contentIdx < contentDays.length) {
     const isSunday = (startDow + position) % 7 === 0;
     dayNumber += 1;
+
+    let isRevision = false;
     if (isSunday) {
+      if (!firstSundayHandled) {
+        firstSundayHandled = true;
+        // If starting day is Thursday..Sunday, skip revision on the 1st Sunday!
+        isRevision = !isThuToSun;
+      } else {
+        isRevision = true;
+      }
+    }
+
+    if (isRevision) {
       days.push({
         id: `revision-week-${Math.ceil(dayNumber / 7)}`,
         dayNumber: 0,
@@ -220,27 +236,57 @@ export function seedDays(startDate = START_DATE): Day[] {
 
 /**
  * Re-derive dayNumber + date from array order. Sequence is the source of truth.
- * `offset` keeps any calendar shift already applied by postpone / pause so a
- * later merge or delete does not silently undo it.
- *
- * Skipped days do NOT consume a slot in the sequence: every active day is
- * renumbered 1..N back-to-back, which is what makes "Day 3" become "Day 1"
- * once Days 1 and 2 are skipped. Skipped days are parked on a distinct
- * negative dayNumber band (-1, -2, ...) instead of keeping their old number —
- * leaving their old number in place would eventually collide with an active
- * day that gets renumbered into that same slot, which could make actions
- * like postpone/merge silently grab the wrong day.
+ * Ensures Sunday is ALWAYS fixed for Weekly Revision (unless start date is Thu-Sun,
+ * in which case the first Sunday has no revision day).
  */
 export function renumber(days: Day[], startDate = START_DATE, offset = 0): Day[] {
+  const baseDate = addDays(startDate, offset);
+  const startDow = new Date(`${baseDate}T00:00:00Z`).getUTCDay();
+  const isThuToSun = startDow === 4 || startDow === 5 || startDow === 6 || startDow === 0;
+
   let seq = 0;
   let skippedSeq = 0;
+  let calOffset = 0;
+  let firstSundayHandled = false;
+
   return days.map((d) => {
     if (d.skipped) {
       skippedSeq += 1;
       return { ...d, dayNumber: -skippedSeq };
     }
+
     seq += 1;
-    return { ...d, dayNumber: seq, date: addDays(startDate, seq - 1 + offset) };
+
+    while (true) {
+      const calDate = addDays(baseDate, calOffset);
+      const dow = new Date(`${calDate}T00:00:00Z`).getUTCDay();
+
+      let isSundayRevision = false;
+      if (dow === 0) {
+        if (!firstSundayHandled) {
+          firstSundayHandled = true;
+          isSundayRevision = !isThuToSun;
+        } else {
+          isSundayRevision = true;
+        }
+      }
+
+      if (d.isRevisionDay) {
+        if (isSundayRevision) {
+          calOffset += 1;
+          return { ...d, dayNumber: seq, date: calDate };
+        } else {
+          calOffset += 1;
+        }
+      } else {
+        if (isSundayRevision) {
+          calOffset += 1;
+        } else {
+          calOffset += 1;
+          return { ...d, dayNumber: seq, date: calDate };
+        }
+      }
+    }
   });
 }
 

@@ -26,7 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { PasswordInput } from "@/components/PasswordInput";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { Bell, CalendarDays, Palette, PauseCircle, PlayCircle, Sliders, UserCog, HelpCircle, Trash2, AlertTriangle, Download, Smartphone, CheckCircle2 } from "lucide-react";
+import { Bell, CalendarDays, Palette, PauseCircle, PlayCircle, Sliders, UserCog, HelpCircle, Trash2, AlertTriangle, Smartphone, CheckCircle2 } from "lucide-react";
 import { useThemeCustomizer } from "../../../app/theme-customizer-context";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 import { ChromeInstallModal } from "@/components/ChromeInstallModal";
@@ -84,11 +84,11 @@ export default function SettingsPage() {
     isStandalone,
     isIOS,
     promptInstall,
-    downloadApk,
     launchApp,
     isModalOpen,
     setIsModalOpen,
   } = usePWAInstall();
+
 
 
 
@@ -343,96 +343,59 @@ export default function SettingsPage() {
 
   return (
     <>
-      {/* Chrome APK / PWA Install Banner */}
-      <div className="mb-6 overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-card to-card p-4 sm:p-5 shadow-sm">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="rounded-xl border border-primary/30 bg-primary/15 p-2.5 text-primary shrink-0">
-              <ChromeIcon className="size-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="font-display text-base font-bold text-foreground">
-                  DSA404 App & Chrome Web APK
-                </h2>
-                {isStandalone ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-500 border border-emerald-500/30">
-                    <CheckCircle2 className="size-3" /> Active App Mode
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-[10px] font-semibold text-primary border border-primary/30">
-                    <Smartphone className="size-3" /> Mobile Ready
-                  </span>
-                )}
+      {/* Chrome PWA Install Banner - shown only if not already installed */}
+      {!isStandalone && (
+        <div className="mb-6 overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-card to-card p-4 sm:p-5 shadow-sm">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl border border-primary/30 bg-primary/15 p-2.5 text-primary shrink-0">
+                <ChromeIcon className="size-6" />
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Install as a native Chrome Web APK for home screen access, faster load times, and instant access.
-              </p>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="font-display text-base font-bold text-foreground">
+                    DSA404 Chrome App (PWA)
+                  </h2>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-[10px] font-semibold text-primary border border-primary/30">
+                    <Smartphone className="size-3" /> Installable App
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Install directly from Chrome for home screen access, fast load times, and background notifications.
+                </p>
+              </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-            {isStandalone ? (
-              <>
-                <Button
-                  onClick={launchApp}
-                  size="sm"
-                  className="font-mono text-xs gap-1.5 flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  <CheckCircle2 className="size-3.5" />
-                  Open App
-                </Button>
-                <Button
-                  onClick={() => setIsModalOpen(true)}
-                  variant="outline"
-                  size="sm"
-                  className="font-mono text-xs gap-1.5 flex-1 sm:flex-initial border-primary/30 text-primary"
-                >
-                  <ChromeIcon className="size-3.5" />
-                  Re-install
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  onClick={promptInstall}
-                  size="sm"
-                  className="font-mono text-xs gap-1.5 flex-1 sm:flex-initial"
-                >
-                  <ChromeIcon className="size-3.5" />
-                  Install App
-                </Button>
-                <Button
-                  onClick={downloadApk}
-                  variant="outline"
-                  size="sm"
-                  className="font-mono text-xs gap-1.5 flex-1 sm:flex-initial"
-                >
-                  <Download className="size-3.5" />
-                  Download APK
-                </Button>
-                <Button
-                  onClick={() => setIsModalOpen(true)}
-                  variant="ghost"
-                  size="sm"
-                  className="font-mono text-xs text-muted-foreground hover:text-foreground"
-                >
-                  Guide
-                </Button>
-              </>
-            )}
+            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+              <Button
+                onClick={promptInstall}
+                size="sm"
+                className="font-mono text-xs gap-1.5 flex-1 sm:flex-initial"
+              >
+                <ChromeIcon className="size-3.5" />
+                Install App
+              </Button>
+              <Button
+                onClick={() => setIsModalOpen(true)}
+                variant="outline"
+                size="sm"
+                className="font-mono text-xs gap-1.5 flex-1 sm:flex-initial"
+              >
+                Guide
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <ChromeInstallModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
-        onDownloadApk={downloadApk}
         onLaunchApp={launchApp}
         isIOS={isIOS}
         isStandalone={isStandalone}
       />
+
 
       <h1 className="mb-1 text-2xl font-bold tracking-tight">Settings</h1>
       <p className="mb-6 text-sm text-muted-foreground">

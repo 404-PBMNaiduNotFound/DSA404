@@ -67,7 +67,7 @@ const NAV = [
 const MOBILE_BOTTOM_KEYS = ["/today", "/problems", "/settings"] as const;
 const MOBILE_BAR = NAV.filter((n) => (MOBILE_BOTTOM_KEYS as readonly string[]).includes(n.to));
 
-const SIDEBAR_MIN = 176;
+const SIDEBAR_MIN = 64;
 const SIDEBAR_MAX = 320;
 const SIDEBAR_DEFAULT = 224;
 const SIDEBAR_STORAGE_KEY = "dsa-sidebar-width";
@@ -108,7 +108,7 @@ function DesktopSidebar({
     document.addEventListener("mouseup", onUp);
   }, [width, onWidthChange]);
 
-  const collapsed = width <= SIDEBAR_MIN + 8;
+  const collapsed = width <= 80;
 
   return (
     <aside
@@ -530,12 +530,21 @@ export function AppShell({ email, children }: { email: string; children: React.R
 
           {/* Desktop context ribbon — same height as header (~52px), shows active page hint */}
           <div className="hidden md:flex sticky top-0 z-20 items-center gap-3 border-b border-border bg-background/95 backdrop-blur px-6 py-3 min-h-[52px]">
-            {/* 3 lines toggle button for Desktop Sidebar */}
+            {/* Menu toggle button for Desktop Sidebar — collapses to icon-only mode instead of hiding */}
             <button
-              onClick={() => setSidebarHidden((v) => !v)}
+              onClick={() => {
+                if (sidebarHidden) {
+                  setSidebarHidden(false);
+                  handleSidebarWidth(SIDEBAR_DEFAULT);
+                } else if (sidebarWidth <= 80) {
+                  handleSidebarWidth(SIDEBAR_DEFAULT);
+                } else {
+                  handleSidebarWidth(64);
+                }
+              }}
               className="flex items-center justify-center p-2 rounded-xl border border-border bg-secondary/50 hover:bg-secondary text-foreground transition-colors shrink-0"
-              title={sidebarHidden ? "Show sidebar" : "Hide sidebar"}
-              aria-label="Toggle sidebar"
+              title={sidebarWidth <= 80 || sidebarHidden ? "Expand sidebar" : "Collapse sidebar to icons"}
+              aria-label="Toggle sidebar collapse"
             >
               <Menu className="size-4" />
             </button>
