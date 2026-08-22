@@ -27,7 +27,25 @@ import {
   Zap,
   ArrowRight,
   Bot,
+  Download,
 } from "lucide-react";
+import { InstallApkSection } from "@/components/InstallApkSection";
+import { usePWAInstall } from "@/hooks/usePWAInstall";
+import { ChromeInstallModal } from "@/components/ChromeInstallModal";
+
+function ChromeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="4" />
+      <line x1="21.17" y1="8" x2="12" y2="8" />
+      <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
+      <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
+    </svg>
+  );
+}
+
+
 
 function YoutubeIcon({ className }: { className?: string }) {
   return (
@@ -695,6 +713,7 @@ Do NOT provide complete solution code or the optimal algorithm immediately.
 export default function Home() {
   const router = useRouter();
   const [user, setUser] = useState<User | null | undefined>(undefined); // undefined = checking
+  const { promptInstall, isModalOpen, setIsModalOpen, downloadApk, isIOS, isStandalone } = usePWAInstall();
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -726,7 +745,16 @@ export default function Home() {
               <span className="bg-gradient-to-br from-primary to-orange-500 bg-clip-text text-transparent ml-[1px]">⁴⁰⁴</span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Button
+              onClick={promptInstall}
+              variant="outline"
+              size="sm"
+              className="font-mono text-xs gap-1.5 border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary cursor-pointer"
+            >
+              <ChromeIcon className="size-3.5" />
+              {isStandalone ? "Open App" : "Install App"}
+            </Button>
             <Button asChild variant="ghost" size="sm" className="font-mono text-xs hidden sm:inline-flex">
               <Link href="/auth">Login</Link>
             </Button>
@@ -741,6 +769,7 @@ export default function Home() {
         <HeroSection />
         <StatsBar />
         <BuiltInIntegrationsSection />
+        <InstallApkSection />
 
         <div id="explore" className="mt-14 pt-8 border-t border-border/50">
           <div className="mb-6 text-center max-w-2xl mx-auto">
@@ -759,13 +788,13 @@ export default function Home() {
           <DemoShell />
         </div>
 
-        <div className="mt-14 text-center">
-          <p className="text-sm text-muted-foreground mb-3">Ready to track your own progress?</p>
-          <div className="flex items-center justify-center gap-3">
-            <Button asChild size="lg" className="font-mono">
+        <div className="mt-14 text-center max-w-md mx-auto px-2">
+          <p className="text-sm text-muted-foreground mb-4">Ready to track your own progress?</p>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 w-full">
+            <Button asChild size="lg" className="font-mono text-xs sm:text-sm h-auto py-3 px-5 text-center whitespace-normal break-words justify-center">
               <Link href="/auth">Create free account</Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="font-mono">
+            <Button asChild size="lg" variant="outline" className="font-mono text-xs sm:text-sm h-auto py-3 px-5 text-center whitespace-normal break-words justify-center">
               <Link href="/auth">I already have an account</Link>
             </Button>
           </div>
@@ -777,6 +806,13 @@ export default function Home() {
           DSA⁴⁰⁴ · Built for structured, consistent DSA practice
         </p>
       </footer>
+
+      <ChromeInstallModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        onDownloadApk={downloadApk}
+        isIOS={isIOS}
+      />
     </div>
   );
 }

@@ -26,9 +26,25 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { PasswordInput } from "@/components/PasswordInput";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { Bell, CalendarDays, Palette, PauseCircle, PlayCircle, Sliders, UserCog, HelpCircle, Trash2, AlertTriangle } from "lucide-react";
+import { Bell, CalendarDays, Palette, PauseCircle, PlayCircle, Sliders, UserCog, HelpCircle, Trash2, AlertTriangle, Download, Smartphone, CheckCircle2 } from "lucide-react";
 import { useThemeCustomizer } from "../../../app/theme-customizer-context";
+import { usePWAInstall } from "@/hooks/usePWAInstall";
+import { ChromeInstallModal } from "@/components/ChromeInstallModal";
 import { cn } from "@/lib/utils";
+
+function ChromeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="4" />
+      <line x1="21.17" y1="8" x2="12" y2="8" />
+      <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
+      <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
+    </svg>
+  );
+}
+
+
 
 
 function Section({
@@ -62,6 +78,19 @@ export default function SettingsPage() {
   const { days, loading: planLoading, rebalance, shiftSchedule, startDate, reload } = usePlan();
   const qc = useQueryClient();
   const { openPanel } = useThemeCustomizer();
+
+  const {
+    canInstall,
+    isStandalone,
+    isIOS,
+    promptInstall,
+    downloadApk,
+    launchApp,
+    isModalOpen,
+    setIsModalOpen,
+  } = usePWAInstall();
+
+
 
   const [name, setName] = useState(() => auth.currentUser?.displayName ?? "");
   const [password, setPassword] = useState("");
@@ -314,6 +343,97 @@ export default function SettingsPage() {
 
   return (
     <>
+      {/* Chrome APK / PWA Install Banner */}
+      <div className="mb-6 overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-card to-card p-4 sm:p-5 shadow-sm">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="rounded-xl border border-primary/30 bg-primary/15 p-2.5 text-primary shrink-0">
+              <ChromeIcon className="size-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-display text-base font-bold text-foreground">
+                  DSA404 App & Chrome Web APK
+                </h2>
+                {isStandalone ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-500 border border-emerald-500/30">
+                    <CheckCircle2 className="size-3" /> Active App Mode
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-[10px] font-semibold text-primary border border-primary/30">
+                    <Smartphone className="size-3" /> Mobile Ready
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Install as a native Chrome Web APK for home screen access, faster load times, and instant access.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+            {isStandalone ? (
+              <>
+                <Button
+                  onClick={launchApp}
+                  size="sm"
+                  className="font-mono text-xs gap-1.5 flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  <CheckCircle2 className="size-3.5" />
+                  Open App
+                </Button>
+                <Button
+                  onClick={() => setIsModalOpen(true)}
+                  variant="outline"
+                  size="sm"
+                  className="font-mono text-xs gap-1.5 flex-1 sm:flex-initial border-primary/30 text-primary"
+                >
+                  <ChromeIcon className="size-3.5" />
+                  Re-install
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  onClick={promptInstall}
+                  size="sm"
+                  className="font-mono text-xs gap-1.5 flex-1 sm:flex-initial"
+                >
+                  <ChromeIcon className="size-3.5" />
+                  Install App
+                </Button>
+                <Button
+                  onClick={downloadApk}
+                  variant="outline"
+                  size="sm"
+                  className="font-mono text-xs gap-1.5 flex-1 sm:flex-initial"
+                >
+                  <Download className="size-3.5" />
+                  Download APK
+                </Button>
+                <Button
+                  onClick={() => setIsModalOpen(true)}
+                  variant="ghost"
+                  size="sm"
+                  className="font-mono text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Guide
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <ChromeInstallModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        onDownloadApk={downloadApk}
+        onLaunchApp={launchApp}
+        isIOS={isIOS}
+        isStandalone={isStandalone}
+      />
+
       <h1 className="mb-1 text-2xl font-bold tracking-tight">Settings</h1>
       <p className="mb-6 text-sm text-muted-foreground">
         Account, pace, reminders and pause controls.
