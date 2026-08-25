@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { getMessaging } from "firebase-admin/messaging";
-import { getAdminDb, verifyIdToken } from "@/integrations/firebase/admin.server";
+import {
+  getAdminDb,
+  verifyIdToken,
+  getAdminProjectId,
+  getClientProjectId,
+  decodeJwtUnverified,
+} from "@/integrations/firebase/admin.server";
 
 const ADMIN_EMAILS = [
   "404dsatracker@gmail.com",
@@ -33,18 +39,35 @@ export async function POST(req: Request) {
       );
     }
 
+    const adminProjectId = getAdminProjectId();
+    const clientProjectId = getClientProjectId();
+    const decodedUnverified = decodeJwtUnverified(idToken);
+
     let decodedToken;
     try {
       decodedToken = await verifyIdToken(idToken);
     } catch (err: any) {
-      console.warn("[api/campaigns/publish] Case C: Firebase ID token verification failed:", err?.code || err?.message || err);
+      const errCode = err?.code || "auth/invalid-id-token";
+      const tokenAud = decodedUnverified.aud;
+      const projectMismatch = Boolean(tokenAud && adminProjectId && tokenAud !== adminProjectId);
+      const finalErrorCode = projectMismatch ? "auth/id-token-project-id-mismatch" : errCode;
+
+      console.warn(`[api/campaigns/publish] Case C: Firebase ID token verification failed. Code: ${finalErrorCode}, Details: ${err?.message || err}`);
+
       return NextResponse.json(
         {
           success: false,
           reason: "INVALID_FIREBASE_ID_TOKEN",
-          message: "Firebase Auth ID token verification failed",
+          errorCode: finalErrorCode,
+          adminProjectId,
+          clientProjectId,
+          tokenAudience: tokenAud || "unknown",
+          tokenIssuer: decodedUnverified.iss || "unknown",
+          projectIdsMatch: !projectMismatch,
           details: err?.message || String(err),
-          code: err?.code || "auth/invalid-id-token",
+          message: projectMismatch
+            ? `Project ID mismatch! Token was issued for project '${tokenAud}', but Firebase Admin SDK is configured for '${adminProjectId}'.`
+            : `Firebase Auth ID token verification failed (${finalErrorCode}).`,
         },
         { status: 401 }
       );

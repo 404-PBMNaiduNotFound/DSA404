@@ -9,7 +9,7 @@ import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import type { Auth } from "firebase-admin/auth";
 
-function sanitizeEnvVar(val?: string): string | undefined {
+export function sanitizeEnvVar(val?: string): string | undefined {
   if (!val) return undefined;
   let cleaned = val.trim();
   if (
@@ -21,10 +21,43 @@ function sanitizeEnvVar(val?: string): string | undefined {
   return cleaned;
 }
 
-function sanitizePrivateKey(key?: string): string | undefined {
+export function sanitizePrivateKey(key?: string): string | undefined {
   const cleaned = sanitizeEnvVar(key);
   if (!cleaned) return undefined;
   return cleaned.replace(/\\n/g, "\n");
+}
+
+export function getAdminProjectId(): string {
+  return (
+    sanitizeEnvVar(process.env.FIREBASE_PROJECT_ID) ||
+    sanitizeEnvVar(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) ||
+    "unknown"
+  );
+}
+
+export function getClientProjectId(): string {
+  return sanitizeEnvVar(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) || "unknown";
+}
+
+export function decodeJwtUnverified(token: string) {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return { validFormat: false };
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = Buffer.from(base64, "base64").toString("utf8");
+    const payload = JSON.parse(jsonPayload);
+    return {
+      validFormat: true,
+      aud: payload.aud as string | undefined, // Target project ID in token
+      iss: payload.iss as string | undefined, // Issuer in token
+      exp: payload.exp as number | undefined, // Expiration timestamp
+      iat: payload.iat as number | undefined, // Issued at timestamp
+      sub: payload.sub ? `${(payload.sub as string).slice(0, 6)}...` : undefined,
+    };
+  } catch (err: any) {
+    return { validFormat: false, error: err?.message || String(err) };
+  }
 }
 
 function createAdminApp(): App {
@@ -47,7 +80,7 @@ function createAdminApp(): App {
     throw new Error(message);
   }
 
-  console.info(`[Firebase Admin] Initializing Admin SDK for project: '${projectId}' (email: ${clientEmail.slice(0, 10)}...)`);
+  console.info(`[admin] resolved projectId: '${projectId}' (email: ${clientEmail.slice(0, 12)}...)`);
   return initializeApp({ credential: cert({ projectId, clientEmail, privateKey }) });
 }
 
@@ -73,10 +106,7 @@ export async function verifyIdToken(idToken: string) {
   try {
     return await auth.verifyIdToken(idToken);
   } catch (err: any) {
-    const projId =
-      sanitizeEnvVar(process.env.FIREBASE_PROJECT_ID) ||
-      sanitizeEnvVar(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) ||
-      "unknown";
+    const projId = getAdminProjectId();
     console.warn(
       `[Firebase Admin] verifyIdToken failed for project '${projId}'. Code: ${
         err?.code || "unknown"
