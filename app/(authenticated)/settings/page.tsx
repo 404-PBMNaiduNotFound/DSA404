@@ -610,11 +610,32 @@ export default function SettingsPage() {
                       setTestingFcm(true);
                       try {
                         const currentUser = auth.currentUser;
+                        const userExists = Boolean(currentUser);
+                        const uid = currentUser?.uid ? `${currentUser.uid.slice(0, 6)}...` : "none";
+
+                        console.info(`[settings] Firebase user exists: ${userExists}`);
+                        console.info(`[settings] Firebase user UID: ${uid}`);
+
                         if (!currentUser) {
                           toast.error("Not authenticated", { description: "Please log in first." });
                           return;
                         }
+
                         const idToken = await currentUser.getIdToken(true);
+                        const tokenLength = idToken ? idToken.length : 0;
+                        const jwtSegments = idToken ? idToken.split(".").length : 0;
+                        const isJwtFormat = jwtSegments === 3;
+
+                        console.info(`[settings] ID token obtained: ${Boolean(idToken)}`);
+                        console.info(`[settings] ID token length: ${tokenLength}`);
+                        console.info(`[settings] ID token JWT format: ${isJwtFormat}`);
+
+                        if (!isJwtFormat) {
+                          console.error("[settings] ERROR: Token returned by getIdToken(true) is not a 3-segment JWT!");
+                          toast.error("Authentication Token Error", { description: "Obtained token is invalid format." });
+                          return;
+                        }
+
                         const res = await fetch("/api/push/test", {
                           method: "POST",
                           headers: {

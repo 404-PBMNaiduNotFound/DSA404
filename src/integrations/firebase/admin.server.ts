@@ -27,6 +27,13 @@ export function sanitizePrivateKey(key?: string): string | undefined {
   return cleaned.replace(/\\n/g, "\n");
 }
 
+/** Extract Bearer token safely from Authorization header case-insensitively */
+export function extractBearerToken(headerValue: string | null): string | null {
+  if (!headerValue) return null;
+  const match = headerValue.trim().match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : null;
+}
+
 export function getAdminProjectId(): string {
   return (
     sanitizeEnvVar(process.env.FIREBASE_PROJECT_ID) ||

@@ -6,12 +6,26 @@ import {
   getAdminProjectId,
   getClientProjectId,
   decodeJwtUnverified,
+  extractBearerToken,
 } from "@/integrations/firebase/admin.server";
 
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    const rawAuthHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+    const hasAuthHeader = Boolean(rawAuthHeader);
+    const startsWithBearer = Boolean(rawAuthHeader && /^Bearer\s+/i.test(rawAuthHeader.trim()));
+    const idToken = extractBearerToken(rawAuthHeader);
+    const hasToken = Boolean(idToken);
+    const tokenLength = idToken ? idToken.length : 0;
+    const jwtSegments = idToken ? idToken.split(".").length : 0;
+    const isValidJwtStructure = jwtSegments === 3;
+
+    console.info(`[auth] Authorization header present: ${hasAuthHeader}`);
+    console.info(`[auth] Bearer format valid: ${startsWithBearer}`);
+    console.info(`[auth] Extracted token length: ${tokenLength}`);
+    console.info(`[auth] JWT structure valid (3 segments): ${isValidJwtStructure}`);
+
+    if (!hasAuthHeader || !startsWithBearer) {
       console.warn("[api/push/test] Case A: Authorization header missing or invalid format.");
       return NextResponse.json(
         {
@@ -23,14 +37,13 @@ export async function POST(req: Request) {
       );
     }
 
-    const idToken = authHeader.split("Bearer ")[1]?.trim();
-    if (!idToken) {
-      console.warn("[api/push/test] Case B: Bearer token string is empty.");
+    if (!idToken || !isValidJwtStructure) {
+      console.warn(`[api/push/test] Case B: Token payload invalid (segments: ${jwtSegments}, length: ${tokenLength}).`);
       return NextResponse.json(
         {
           success: false,
           reason: "AUTH_HEADER_EMPTY",
-          message: "Empty bearer token string",
+          message: `Token string is empty or not a valid 3-segment JWT (segments: ${jwtSegments}, length: ${tokenLength})`,
         },
         { status: 401 }
       );
@@ -40,17 +53,19 @@ export async function POST(req: Request) {
     const clientProjectId = getClientProjectId();
     const decodedUnverified = decodeJwtUnverified(idToken);
 
-    console.info(`[api/push/test] Diagnostic Token Inspection:
+    console.info(`[auth] Unverified JWT Payload Claims:
+      - aud (project ID): '${decodedUnverified.aud || "missing"}'
+      - iss (issuer): '${decodedUnverified.iss || "missing"}'
+      - exp (expiration): ${decodedUnverified.exp || 0} (now: ${Math.floor(Date.now() / 1000)})
+      - sub (user prefix): '${decodedUnverified.sub || "missing"}'
       - adminProjectId: '${adminProjectId}'
-      - clientProjectId: '${clientProjectId}'
-      - tokenAudience (aud): '${decodedUnverified.aud || "unknown"}'
-      - tokenIssuer (iss): '${decodedUnverified.iss || "unknown"}'
-      - validFormat: ${decodedUnverified.validFormat}`
+      - clientProjectId: '${clientProjectId}'`
     );
 
     let decodedToken;
     try {
       decodedToken = await verifyIdToken(idToken);
+      console.info(`[auth] verifyIdToken SUCCESS for uid=${decodedToken.uid.slice(0, 8)}...`);
     } catch (err: any) {
       const errCode = err?.code || "auth/invalid-id-token";
       const tokenAud = decodedUnverified.aud;
@@ -68,6 +83,8 @@ export async function POST(req: Request) {
           clientProjectId,
           tokenAudience: tokenAud || "unknown",
           tokenIssuer: decodedUnverified.iss || "unknown",
+          tokenLength,
+          jwtStructureValid: isValidJwtStructure,
           projectIdsMatch: !projectMismatch,
           details: err?.message || String(err),
           message: projectMismatch
@@ -91,7 +108,7 @@ export async function POST(req: Request) {
       );
     }
 
-    console.info(`[api/push/test] Case E: Firebase Auth verified successfully for uid=${uid.slice(0, 8)}... Querying stored FCM tokens...`);
+    console.info(`[api/push/test] Case E: Authentication succeeds. Querying stored FCM tokens for uid=${uid.slice(0, 8)}...`);
 
     const db = getAdminDb();
     const pushSnap = await db.collection(`users/${uid}/pushSubscriptions`).get();
