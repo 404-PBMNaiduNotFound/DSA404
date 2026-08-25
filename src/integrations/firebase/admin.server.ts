@@ -4,32 +4,37 @@
 //
 // SECURITY: only import this from *.server.ts modules, TanStack server
 // functions, or Cloud Functions — never ship it to the client bundle.
-// Top-level import is safe only in other .server.ts modules; route files and
-// *.functions.ts ship to the client bundle, so load it lazily there:
-//   const { getAdminDb } = await import("@/integrations/firebase/admin.server");
-//
-// NOTE: `firebase-admin/auth` is intentionally NOT imported at the top of
-// this file. Its dependency chain (google-auth-library -> jwks-rsa -> jose)
-// includes `jose`, which ships as pure ESM with no CommonJS build. Any route
-// that imports this file — even just for getAdminDb()/Firestore — would
-// otherwise drag in that broken require() chain and crash with
-// ERR_REQUIRE_ESM at runtime, regardless of bundler settings. Loading
-// firebase-admin/auth lazily (only inside getAdminAuth/verifyIdToken, which
-// nothing calls unless actually needed) keeps routes that only touch
-// Firestore/Messaging (e.g. the reminders cron route) completely unaffected.
+
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import type { Auth } from "firebase-admin/auth";
+
+function sanitizeEnvVar(val?: string): string | undefined {
+  if (!val) return undefined;
+  let cleaned = val.trim();
+  if (
+    (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
+    (cleaned.startsWith("'") && cleaned.endsWith("'"))
+  ) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+  return cleaned;
+}
+
+function sanitizePrivateKey(key?: string): string | undefined {
+  const cleaned = sanitizeEnvVar(key);
+  if (!cleaned) return undefined;
+  return cleaned.replace(/\\n/g, "\n");
+}
 
 function createAdminApp(): App {
   const existing = getApps()[0];
   if (existing) return existing;
 
-  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  // Service-account private keys are stored with literal `\n` in most secret
-  // managers (incl. `firebase functions:secrets:set` / .env files) — un-escape them.
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const rawProjectId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const projectId = sanitizeEnvVar(rawProjectId);
+  const clientEmail = sanitizeEnvVar(process.env.FIREBASE_CLIENT_EMAIL);
+  const privateKey = sanitizePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
 
   if (!projectId || !clientEmail || !privateKey) {
     const missing = [
@@ -42,7 +47,7 @@ function createAdminApp(): App {
     throw new Error(message);
   }
 
-  console.info(`[Firebase Admin] Initializing Admin SDK for project: '${projectId}'`);
+  console.info(`[Firebase Admin] Initializing Admin SDK for project: '${projectId}' (email: ${clientEmail.slice(0, 10)}...)`);
   return initializeApp({ credential: cert({ projectId, clientEmail, privateKey }) });
 }
 
@@ -68,22 +73,33 @@ export async function verifyIdToken(idToken: string) {
   try {
     return await auth.verifyIdToken(idToken);
   } catch (err: any) {
-    const projId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "unknown";
-    console.warn(`[Firebase Admin] verifyIdToken failed for project '${projId}'. Code: ${err?.code || 'unknown'}, Message: ${err?.message || String(err)}`);
+    const projId =
+      sanitizeEnvVar(process.env.FIREBASE_PROJECT_ID) ||
+      sanitizeEnvVar(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) ||
+      "unknown";
+    console.warn(
+      `[Firebase Admin] verifyIdToken failed for project '${projId}'. Code: ${
+        err?.code || "unknown"
+      }, Message: ${err?.message || String(err)}`
+    );
     throw err;
   }
 }
 
 /**
  * Wipes every document under `users/{uid}` (all subcollections), used by the
- * "Delete my account & data" flow. Firestore does not cascade-delete, so this
- * walks each known subcollection explicitly. Mirrors deleteAccountData() in
- * src/lib/db.ts but runs with Admin privileges so it works even after the
- * client's ID token has been invalidated by account deletion.
+ * "Delete my account & data" flow.
  */
 export async function deleteAllUserData(uid: string): Promise<void> {
   const adminDb = getAdminDb();
-  const subcollections = ["days", "meta", "revisionEvents", "settings", "achievements", "pushSubscriptions"];
+  const subcollections = [
+    "days",
+    "meta",
+    "revisionEvents",
+    "settings",
+    "achievements",
+    "pushSubscriptions",
+  ];
   for (const name of subcollections) {
     const snap = await adminDb.collection("users").doc(uid).collection(name).get();
     const batchSize = 400;

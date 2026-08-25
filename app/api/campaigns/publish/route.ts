@@ -17,16 +17,18 @@ export async function POST(req: Request) {
   try {
     const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.warn("[api/campaigns/publish] Case A: Authorization header missing or invalid format.");
       return NextResponse.json(
-        { success: false, error: "UNAUTHORIZED", message: "Missing Bearer authorization token" },
+        { success: false, reason: "AUTH_HEADER_MISSING", message: "Missing or invalid Bearer authorization header" },
         { status: 401 }
       );
     }
 
     const idToken = authHeader.split("Bearer ")[1]?.trim();
     if (!idToken) {
+      console.warn("[api/campaigns/publish] Case B: Bearer token string is empty.");
       return NextResponse.json(
-        { success: false, error: "UNAUTHORIZED", message: "Empty bearer token" },
+        { success: false, reason: "AUTH_HEADER_EMPTY", message: "Empty bearer token string" },
         { status: 401 }
       );
     }
@@ -35,14 +37,14 @@ export async function POST(req: Request) {
     try {
       decodedToken = await verifyIdToken(idToken);
     } catch (err: any) {
-      console.warn("[api/campaigns/publish] Token verification failed:", err?.code || err?.message || err);
+      console.warn("[api/campaigns/publish] Case C: Firebase ID token verification failed:", err?.code || err?.message || err);
       return NextResponse.json(
         {
           success: false,
-          error: "UNAUTHORIZED",
-          message: "Invalid ID token",
+          reason: "INVALID_FIREBASE_ID_TOKEN",
+          message: "Firebase Auth ID token verification failed",
           details: err?.message || String(err),
-          code: err?.code || "auth/invalid-token",
+          code: err?.code || "auth/invalid-id-token",
         },
         { status: 401 }
       );
@@ -51,8 +53,9 @@ export async function POST(req: Request) {
     const uid = decodedToken.uid;
     const email = decodedToken.email;
     if (!uid) {
+      console.warn("[api/campaigns/publish] Case D: Decoded token contained no UID.");
       return NextResponse.json(
-        { success: false, error: "UNAUTHORIZED", message: "No UID in token" },
+        { success: false, reason: "NO_UID_IN_TOKEN", message: "No UID found in verified token" },
         { status: 401 }
       );
     }
@@ -67,7 +70,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: "FORBIDDEN",
+          reason: "FORBIDDEN",
           message: "Only authorized administrators are permitted to publish notification campaigns.",
         },
         { status: 403 }
@@ -75,18 +78,18 @@ export async function POST(req: Request) {
     }
 
     const bodyJson = await req.json().catch(() => ({}));
-    const { title, body, url, resend } = bodyJson;
+    const { title, body, url } = bodyJson;
 
     if (!title || typeof title !== "string" || !title.trim()) {
       return NextResponse.json(
-        { success: false, error: "BAD_REQUEST", message: "Title is required" },
+        { success: false, reason: "BAD_REQUEST", message: "Title is required" },
         { status: 400 }
       );
     }
 
     if (!body || typeof body !== "string" || !body.trim()) {
       return NextResponse.json(
-        { success: false, error: "BAD_REQUEST", message: "Message body is required" },
+        { success: false, reason: "BAD_REQUEST", message: "Message body is required" },
         { status: 400 }
       );
     }
@@ -218,7 +221,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: "INTERNAL_ERROR",
+        reason: "INTERNAL_ERROR",
         message: err?.message || String(err),
       },
       { status: 500 }
