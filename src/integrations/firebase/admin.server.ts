@@ -25,7 +25,7 @@ function createAdminApp(): App {
   const existing = getApps()[0];
   if (existing) return existing;
 
-  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   // Service-account private keys are stored with literal `\n` in most secret
   // managers (incl. `firebase functions:secrets:set` / .env files) — un-escape them.
@@ -33,7 +33,7 @@ function createAdminApp(): App {
 
   if (!projectId || !clientEmail || !privateKey) {
     const missing = [
-      ...(!projectId ? ["FIREBASE_PROJECT_ID"] : []),
+      ...(!projectId ? ["FIREBASE_PROJECT_ID / NEXT_PUBLIC_FIREBASE_PROJECT_ID"] : []),
       ...(!clientEmail ? ["FIREBASE_CLIENT_EMAIL"] : []),
       ...(!privateKey ? ["FIREBASE_PRIVATE_KEY"] : []),
     ];
@@ -42,6 +42,7 @@ function createAdminApp(): App {
     throw new Error(message);
   }
 
+  console.info(`[Firebase Admin] Initializing Admin SDK for project: '${projectId}'`);
   return initializeApp({ credential: cert({ projectId, clientEmail, privateKey }) });
 }
 
@@ -64,7 +65,13 @@ export function getAdminDb(): Firestore {
 /** Verifies a Firebase ID token and returns the decoded claims (throws if invalid/expired). */
 export async function verifyIdToken(idToken: string) {
   const auth = await getAdminAuth();
-  return auth.verifyIdToken(idToken);
+  try {
+    return await auth.verifyIdToken(idToken);
+  } catch (err: any) {
+    const projId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "unknown";
+    console.warn(`[Firebase Admin] verifyIdToken failed for project '${projId}'. Code: ${err?.code || 'unknown'}, Message: ${err?.message || String(err)}`);
+    throw err;
+  }
 }
 
 /**

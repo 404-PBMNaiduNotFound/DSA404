@@ -24,9 +24,15 @@ export async function POST(req: Request) {
     try {
       decodedToken = await verifyIdToken(idToken);
     } catch (err: any) {
-      console.warn("[api/push/test] Token verification failed:", err?.message || err);
+      console.warn("[api/push/test] Token verification failed:", err?.code || err?.message || err);
       return NextResponse.json(
-        { success: false, error: "UNAUTHORIZED", message: "Invalid ID token" },
+        {
+          success: false,
+          error: "UNAUTHORIZED",
+          message: "Invalid ID token",
+          details: err?.message || String(err),
+          code: err?.code || "auth/invalid-token",
+        },
         { status: 401 }
       );
     }

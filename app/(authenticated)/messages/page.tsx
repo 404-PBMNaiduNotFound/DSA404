@@ -99,7 +99,7 @@ export default function MessagesPage() {
         return;
       }
 
-      const idToken = await currentUser.getIdToken();
+      const idToken = await currentUser.getIdToken(true);
       const res = await fetch("/api/campaigns/publish", {
         method: "POST",
         headers: {

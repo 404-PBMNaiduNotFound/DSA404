@@ -25,6 +25,12 @@ export function pushState(): PushState {
   return Notification.permission as PushState;
 }
 
+// Module-level singleton state to prevent duplicate registrations and HMR/render loop churning
+let lastSubscribedUserId: string | null = null;
+let lastSubscribedTime = 0;
+let isForegroundListenerRegistered = false;
+let activeUnsubscribe: (() => void) | null = null;
+
 /** Register the firebase messaging service worker (best-effort). */
 export async function registerReminderWorker() {
   if (!pushSupported()) return null;
@@ -51,15 +57,24 @@ export async function requestPushPermission(): Promise<PushState> {
 
 /**
  * Attempt to subscribe this device to FCM push.
+ * @param userId Firebase Auth User ID
+ * @param force Force token generation even if recently subscribed in this session
  * @returns true if FCM subscription succeeded, false otherwise.
  */
-export async function subscribeDevice(userId: string): Promise<boolean> {
+export async function subscribeDevice(userId: string, force = false): Promise<boolean> {
   const perm = pushState();
   console.info(`[push] Stage A: Diagnostic check — Permission: ${perm}, SW supported: ${pushSupported()}`);
 
   if (perm !== "granted") {
     console.warn("[push] Stage A: Cannot subscribe device — Notification permission is not granted.");
     return false;
+  }
+
+  // Session guard: if already subscribed for this user recently, skip redundant token fetch & Firestore write
+  const now = Date.now();
+  if (!force && lastSubscribedUserId === userId && now - lastSubscribedTime < 5 * 60 * 1000) {
+    console.info(`[push] FCM token subscription already active for user ${userId.slice(0, 8)}... (Skipping duplicate generation)`);
+    return true;
   }
 
   const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY as string | undefined;
@@ -102,6 +117,8 @@ export async function subscribeDevice(userId: string): Promise<boolean> {
     });
 
     console.info(`[push] Stage B SUCCESS: Saved token to users/${userId}/pushSubscriptions/${token.slice(0, 8)}...`);
+    lastSubscribedUserId = userId;
+    lastSubscribedTime = now;
     return true;
   } catch (e: any) {
     console.error("[push] Stage A/B ERROR: FCM subscription failed:", e?.message || e);
@@ -112,18 +129,25 @@ export async function subscribeDevice(userId: string): Promise<boolean> {
 /**
  * Setup client-side foreground listener for incoming FCM messages when tab is OPEN.
  * Listens via onMessage(messaging, callback).
+ * Uses a singleton guard to guarantee exactly ONE listener per active application session.
  */
 export async function setupForegroundNotificationListener(
   onReceive?: (payload: any) => void
 ): Promise<() => void> {
   if (!pushSupported()) return () => {};
+
+  if (isForegroundListenerRegistered && activeUnsubscribe) {
+    console.info("[push] Stage D: FCM foreground onMessage() listener is ALREADY active. Skipping duplicate registration.");
+    return activeUnsubscribe;
+  }
+
   try {
     const messaging = await getMessagingIfSupported();
     if (!messaging) return () => {};
 
     console.info("[push] Stage D: Registering FCM foreground onMessage() listener...");
 
-    const unsubscribe = onMessage(messaging, (payload) => {
+    const unsubscribeFn = onMessage(messaging, (payload) => {
       console.info("[push] Stage D SUCCESS: FCM foreground message received:", payload);
 
       const title =
@@ -141,10 +165,19 @@ export async function setupForegroundNotificationListener(
       void showLocalReminder(title, body, tag);
     });
 
-    return () => {
-      console.info("[push] Cleaning up FCM foreground onMessage() listener.");
-      unsubscribe();
+    isForegroundListenerRegistered = true;
+    activeUnsubscribe = () => {
+      console.info("[push] Teardown: Unsubscribing FCM foreground onMessage() listener.");
+      try {
+        unsubscribeFn();
+      } catch (err) {
+        /* silent */
+      }
+      isForegroundListenerRegistered = false;
+      activeUnsubscribe = null;
     };
+
+    return activeUnsubscribe;
   } catch (err) {
     console.error("[push] Stage D ERROR: Failed to attach onMessage() listener:", err);
     return () => {};

@@ -614,7 +614,7 @@ export default function SettingsPage() {
                           toast.error("Not authenticated", { description: "Please log in first." });
                           return;
                         }
-                        const idToken = await currentUser.getIdToken();
+                        const idToken = await currentUser.getIdToken(true);
                         const res = await fetch("/api/push/test", {
                           method: "POST",
                           headers: {

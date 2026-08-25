@@ -43,19 +43,20 @@ export function ReminderRunner() {
   const daysRef = useRef(days);
   daysRef.current = days;
 
+  // 1. One-time FCM Push Setup (stable lifecycle, runs only when user UID or pushEnabled changes)
   useEffect(() => {
     if (typeof window === "undefined") return;
-    let unsubForeground: (() => void) | undefined;
+    if (!user?.uid || !settings.pushEnabled) return;
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
 
-    if ("Notification" in window && Notification.permission === "granted") {
-      void registerReminderWorker();
-      if (user?.uid && settings.pushEnabled) {
-        void subscribeDevice(user.uid);
-      }
-      void setupForegroundNotificationListener().then((unsub) => {
-        unsubForeground = unsub;
-      });
-    }
+    void registerReminderWorker();
+    void subscribeDevice(user.uid);
+    void setupForegroundNotificationListener();
+  }, [user?.uid, settings.pushEnabled]);
+
+  // 2. Scheduled Local In-Tab Reminders Loop (ticks every 30s)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
 
     const tick = async () => {
       const now = new Date();
@@ -240,10 +241,7 @@ export function ReminderRunner() {
 
     void tick();
     const id = window.setInterval(() => void tick(), 30_000);
-    return () => {
-      if (unsubForeground) unsubForeground();
-      window.clearInterval(id);
-    };
+    return () => window.clearInterval(id);
   }, [
     settings.pushEnabled,
     settings.paused,
