@@ -216,9 +216,9 @@ function TodayPanel() {
               <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2 min-w-0">
                   {p.done ? (
-                    <CheckCircle2 className="size-4 text-emerald-500 shrink-0" title="Completed" />
+                    <span title="Completed"><CheckCircle2 className="size-4 text-emerald-500 shrink-0" /></span>
                   ) : (
-                    <Circle className="size-4 text-muted-foreground shrink-0" title="Pending" />
+                    <span title="Pending"><Circle className="size-4 text-muted-foreground shrink-0" /></span>
                   )}
                   <span className="font-mono text-xs text-muted-foreground">#{idx + 1}</span>
                   <span className={cn("text-sm font-semibold truncate", p.done && "line-through text-muted-foreground")}>

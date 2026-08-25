@@ -101,6 +101,7 @@ export default function SettingsPage() {
   const [planStartDate, setPlanStartDate] = useState(() => startDate);
   const [startDirty, setStartDirty] = useState(false);
   const [startBusy, setStartBusy] = useState(false);
+  const [testingFcm, setTestingFcm] = useState(false);
 
   // Sync counts when settings load from Firestore
   useEffect(() => {
@@ -581,24 +582,71 @@ export default function SettingsPage() {
             </div>
             <div className="flex items-center gap-2">
               {pushPerm === "granted" && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    await registerReminderWorker();
-                    await showLocalReminder(
-                      "🔔 Test Notification — DSA404",
-                      "Browser notifications are working perfectly on your device!"
-                    );
-                    toast.success("Test notification sent!", {
-                      description: "If you didn't see a popup, check your OS Notification & Focus/Do Not Disturb settings.",
-                    });
-                  }}
-                  className="text-xs h-8"
-                >
-                  Test Notification 🔔
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      await registerReminderWorker();
+                      await showLocalReminder(
+                        "🔔 Test Notification — DSA404",
+                        "Browser notifications are working perfectly on your device!"
+                      );
+                      toast.success("Test notification sent!", {
+                        description: "If you didn't see a popup, check your OS Notification & Focus/Do Not Disturb settings.",
+                      });
+                    }}
+                    className="text-xs h-8"
+                  >
+                    Test Notification 🔔
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={testingFcm}
+                    onClick={async () => {
+                      setTestingFcm(true);
+                      try {
+                        const currentUser = auth.currentUser;
+                        if (!currentUser) {
+                          toast.error("Not authenticated", { description: "Please log in first." });
+                          return;
+                        }
+                        const idToken = await currentUser.getIdToken();
+                        const res = await fetch("/api/push/test", {
+                          method: "POST",
+                          headers: {
+                            Authorization: `Bearer ${idToken}`,
+                            "Content-Type": "application/json",
+                          },
+                        });
+                        const data = await res.json();
+                        console.info("[settings] Direct FCM Push Test response:", data);
+
+                        if (data.success) {
+                          toast.success("Direct FCM Push Delivered! 🚀", {
+                            description: `Tokens target: ${data.tokensFound}, Success count: ${data.successCount}, Failures: ${data.failureCount}`,
+                          });
+                        } else {
+                          toast.error(`FCM Test Failed (Stage ${data.stage || "C"})`, {
+                            description: data.message || "Could not send direct FCM push message.",
+                          });
+                        }
+                      } catch (err: any) {
+                        toast.error("Error calling FCM test API", {
+                          description: err?.message || String(err),
+                        });
+                      } finally {
+                        setTestingFcm(false);
+                      }
+                    }}
+                    className="text-xs h-8"
+                  >
+                    {testingFcm ? "Sending Push..." : "Test Direct FCM Push 🚀"}
+                  </Button>
+                </>
               )}
               <Switch
                 id="push"

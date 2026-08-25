@@ -96,5 +96,13 @@ service cloud.firestore {
         allow read, write: if isOwner(uid);
       }
     }
+
+    // Top-level announcements/messages collection.
+    // Read open to all authenticated users so everyone can view platform updates.
+    // Writes are restricted to Firebase Admin SDK (server API) only.
+    match /messages/{messageId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
   }
 }

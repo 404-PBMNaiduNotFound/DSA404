@@ -3,12 +3,15 @@
  *
  * Two layers:
  *  1. LOCAL — plain Web Notifications API. Works whenever the user grants
- *     permission. No VAPID / FCM / service-worker required. Used by
- *     ReminderRunner when the tab is open.
- *  2. BACKGROUND (optional) — FCM via firebase-messaging-sw.js. Only
- *     attempted if NEXT_PUBLIC_FIREBASE_VAPID_KEY is set in env. Failing
- *     to subscribe to FCM does NOT prevent local notifications from working.
+ *     permission. Used by ReminderRunner when the tab is open.
+ *  2. BACKGROUND & FOREGROUND FCM — FCM via firebase-messaging-sw.js.
+ *     FCM foreground messages require an onMessage() listener in the main thread.
  */
+
+import { getMessagingIfSupported } from "@/integrations/firebase/client";
+import { getToken, onMessage } from "firebase/messaging";
+import { doc, setDoc } from "firebase/firestore";
+import { pushSubscriptionsCol } from "@/lib/db";
 
 export const pushSupported = () =>
   typeof window !== "undefined" &&
@@ -26,8 +29,11 @@ export function pushState(): PushState {
 export async function registerReminderWorker() {
   if (!pushSupported()) return null;
   try {
-    return await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-  } catch {
+    const reg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+    console.info("[push] Stage A: Service Worker registered successfully:", reg.scope);
+    return reg;
+  } catch (err) {
+    console.error("[push] Stage A ERROR: Service Worker registration failed:", err);
     return null;
   }
 }
@@ -39,70 +45,122 @@ export async function registerReminderWorker() {
 export async function requestPushPermission(): Promise<PushState> {
   if (!pushSupported()) return "unsupported";
   const result = await Notification.requestPermission();
+  console.info(`[push] Stage A: Permission requested, user response: ${result}`);
   return result as PushState;
 }
 
 /**
- * Attempt to subscribe this device to FCM background push.
- * This is OPTIONAL — it only works when NEXT_PUBLIC_FIREBASE_VAPID_KEY
- * is set. If it fails for any reason, local notifications still work.
- *
- * @returns true if FCM subscription succeeded, false otherwise (non-fatal).
+ * Attempt to subscribe this device to FCM push.
+ * @returns true if FCM subscription succeeded, false otherwise.
  */
 export async function subscribeDevice(userId: string): Promise<boolean> {
-  // Next.js env var (must be prefixed with NEXT_PUBLIC_ to reach the browser)
-  const vapidKey =
-    process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY as string | undefined;
+  const perm = pushState();
+  console.info(`[push] Stage A: Diagnostic check — Permission: ${perm}, SW supported: ${pushSupported()}`);
 
+  if (perm !== "granted") {
+    console.warn("[push] Stage A: Cannot subscribe device — Notification permission is not granted.");
+    return false;
+  }
+
+  const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY as string | undefined;
   if (!vapidKey) {
-    // No VAPID key configured — FCM background push unavailable.
-    // Local (in-tab) notifications will still work fine.
-    console.info(
-      "[push] NEXT_PUBLIC_FIREBASE_VAPID_KEY not set — FCM background push disabled. " +
-        "Local tab notifications are still active."
-    );
+    console.warn("[push] Stage A: NEXT_PUBLIC_FIREBASE_VAPID_KEY is missing from environment variables.");
     return false;
   }
 
   try {
     const reg = await registerReminderWorker();
-    if (!reg) return false;
+    if (!reg) {
+      console.warn("[push] Stage A: Service Worker registration returned null.");
+      return false;
+    }
 
-    const { getMessagingIfSupported } = await import(
-      "@/integrations/firebase/client"
-    );
     const messaging = await getMessagingIfSupported();
-    if (!messaging) return false;
+    if (!messaging) {
+      console.warn("[push] Stage A: FCM Messaging is not supported in this browser environment.");
+      return false;
+    }
 
-    const { getToken } = await import("firebase/messaging");
+    console.info("[push] Stage A: Requesting FCM Token from Firebase Messaging...");
     const token = await getToken(messaging, {
       vapidKey,
       serviceWorkerRegistration: reg,
     });
-    if (!token) return false;
 
-    // Save token to Firestore so Cloud Functions can reach it
-    const { doc, setDoc } = await import("firebase/firestore");
-    const { pushSubscriptionsCol } = await import("@/lib/db");
+    if (!token) {
+      console.error("[push] Stage A ERROR: getToken() returned empty token string.");
+      return false;
+    }
+
+    console.info(`[push] Stage A SUCCESS: Real FCM token obtained (${token.slice(0, 10)}...${token.slice(-6)})`);
+
+    // Save token to Firestore so backend can reach it
     await setDoc(doc(pushSubscriptionsCol(userId), token), {
       token,
       createdAt: new Date().toISOString(),
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
     });
+
+    console.info(`[push] Stage B SUCCESS: Saved token to users/${userId}/pushSubscriptions/${token.slice(0, 8)}...`);
     return true;
-  } catch (e) {
-    console.warn("[push] FCM subscription failed (non-fatal):", e);
+  } catch (e: any) {
+    console.error("[push] Stage A/B ERROR: FCM subscription failed:", e?.message || e);
     return false;
   }
 }
 
 /**
- * Show a local browser notification.
+ * Setup client-side foreground listener for incoming FCM messages when tab is OPEN.
+ * Listens via onMessage(messaging, callback).
+ */
+export async function setupForegroundNotificationListener(
+  onReceive?: (payload: any) => void
+): Promise<() => void> {
+  if (!pushSupported()) return () => {};
+  try {
+    const messaging = await getMessagingIfSupported();
+    if (!messaging) return () => {};
+
+    console.info("[push] Stage D: Registering FCM foreground onMessage() listener...");
+
+    const unsubscribe = onMessage(messaging, (payload) => {
+      console.info("[push] Stage D SUCCESS: FCM foreground message received:", payload);
+
+      const title =
+        payload.notification?.title || payload.data?.title || "DSA⁴⁰⁴ Alert";
+      const body =
+        payload.notification?.body || payload.data?.body || "You have a new notification.";
+      const tag =
+        payload.data?.tag || (payload.notification as any)?.tag || `dsa-reminder-${Date.now()}`;
+
+      if (onReceive) {
+        onReceive(payload);
+      }
+
+      console.info("[push] Stage E: Displaying foreground notification popup via showLocalReminder...");
+      void showLocalReminder(title, body, tag);
+    });
+
+    return () => {
+      console.info("[push] Cleaning up FCM foreground onMessage() listener.");
+      unsubscribe();
+    };
+  } catch (err) {
+    console.error("[push] Stage D ERROR: Failed to attach onMessage() listener:", err);
+    return () => {};
+  }
+}
+
+/**
+ * Show a browser notification.
  * Uses Service Worker showNotification if available (survives tab hidden),
  * falls back to plain new Notification().
  */
-export async function showLocalReminder(title: string, body: string) {
+export async function showLocalReminder(title: string, body: string, customTag?: string) {
   if (!pushSupported()) return;
   if (Notification.permission !== "granted") return;
+
+  const tag = customTag || `dsa-reminder-${Date.now()}`;
 
   // 1. Try Service Worker showNotification first (works across Desktop, Android, PWA)
   try {
@@ -113,10 +171,11 @@ export async function showLocalReminder(title: string, body: string) {
     if (reg && reg.showNotification) {
       await reg.showNotification(title, {
         body,
-        icon: "/icon.jpg",
-        badge: "/icon.jpg",
-        tag: `dsa-reminder-${Date.now()}`,
+        icon: "/icon.png",
+        badge: "/icon.png",
+        tag,
       });
+      console.info("[push] Stage E SUCCESS: Displayed notification via ServiceWorker showNotification");
       return;
     }
   } catch (e) {
@@ -125,9 +184,10 @@ export async function showLocalReminder(title: string, body: string) {
 
   // 2. Fallback to plain Notification API
   try {
-    new Notification(title, { body, icon: "/icon.jpg", tag: `dsa-reminder-${Date.now()}` });
+    new Notification(title, { body, icon: "/icon.jpg", tag });
+    console.info("[push] Stage E SUCCESS: Displayed notification via window.Notification");
   } catch (e) {
-    console.warn("[push] showLocalReminder failed entirely:", e);
+    console.warn("[push] Stage E ERROR: showLocalReminder failed entirely:", e);
   }
 }
 

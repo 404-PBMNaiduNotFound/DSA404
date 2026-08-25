@@ -16,7 +16,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useAuth } from "@/hooks/useAuth";
 import { useContests } from "@/hooks/useContests";
 import { todayIso } from "@/lib/plan";
-import { registerReminderWorker, showLocalReminder, subscribeDevice, timeToMinutes } from "@/lib/push";
+import { registerReminderWorker, setupForegroundNotificationListener, showLocalReminder, subscribeDevice, timeToMinutes } from "@/lib/push";
 import { fetchTopicReminders, markTopicReminderTriggered } from "@/lib/reminders";
 
 const STORAGE_KEY_EVENING = "dsa:last-local-reminder";
@@ -45,15 +45,16 @@ export function ReminderRunner() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    let unsubForeground: (() => void) | undefined;
+
     if ("Notification" in window && Notification.permission === "granted") {
       void registerReminderWorker();
-      // Re-assert the FCM token every load (not just on first toggle-on).
-      // Tokens can expire/rotate, and returning users on a new device or
-      // browser reinstall previously never got re-subscribed, so their
-      // background push silently died until they revisited Settings.
       if (user?.uid && settings.pushEnabled) {
         void subscribeDevice(user.uid);
       }
+      void setupForegroundNotificationListener().then((unsub) => {
+        unsubForeground = unsub;
+      });
     }
 
     const tick = async () => {
@@ -239,7 +240,10 @@ export function ReminderRunner() {
 
     void tick();
     const id = window.setInterval(() => void tick(), 30_000);
-    return () => window.clearInterval(id);
+    return () => {
+      if (unsubForeground) unsubForeground();
+      window.clearInterval(id);
+    };
   }, [
     settings.pushEnabled,
     settings.paused,
