@@ -4,9 +4,9 @@
  * Postgres `ON DELETE CASCADE` (Firestore has no equivalent, so it's done
  * explicitly here, triggered right before the Auth user is removed).
  *
- * Required secrets (set with `firebase functions:secrets:set NAME`):
- *   RESEND_API_KEY        - resend.com API key, for email delivery
- *   REMINDER_FROM_EMAIL   - e.g. "DSA⁴⁰⁴ <reminders@yourdomain.com>"
+ * Required secret (set with `firebase functions:secrets:set GMAIL_APP_PASSWORD`):
+ *   GMAIL_APP_PASSWORD    - Gmail SMTP app password, for email delivery
+ * GMAIL_USER is not sensitive and can stay a plain env var.
  * FCM push uses the Admin SDK's default service-account credentials — no
  * separate secret needed (unlike the old raw VAPID web-push keys).
  */
@@ -16,12 +16,18 @@ import { getMessaging } from "firebase-admin/messaging";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { beforeUserDeleted, AuthBlockingEvent } from "firebase-functions/v2/identity";
 import { logger } from "firebase-functions/v2";
+import { defineSecret } from "firebase-functions/params";
 import { sendEmail } from "../../src/lib/email"; // Nodemailer utility
 
 initializeApp();
 const db = getFirestore();
 
-// Resend secrets removed – using Gmail SMTP via Nodemailer
+// Resend secrets removed – using Gmail SMTP via Nodemailer.
+// GMAIL_APP_PASSWORD is sensitive, so it's declared as a proper Firebase
+// Functions v2 secret (set with `firebase functions:secrets:set GMAIL_APP_PASSWORD`)
+// instead of a plain .env value. GMAIL_USER isn't sensitive, so it stays a
+// regular env var (set in functions/.env).
+const GMAIL_APP_PASSWORD = defineSecret("GMAIL_APP_PASSWORD");
 
 interface UserSettingsRow {
   uid: string;
@@ -75,7 +81,7 @@ function todayIsoInTz(timeZone: string): string {
 export const sendReminders = onSchedule(
   {
     schedule: "every 15 minutes",
-    secrets: [RESEND_API_KEY, REMINDER_FROM_EMAIL],
+    secrets: [GMAIL_APP_PASSWORD],
   },
   async () => {
     const settingsSnap = await db
@@ -147,8 +153,27 @@ export const sendReminders = onSchedule(
           if (tokens.length > 0) {
             const result = await getMessaging().sendEachForMulticast({
               tokens,
-              notification: { title: "Today's DSA plan is waiting", body },
-              webpush: { fcmOptions: { link: "/today" } },
+              // Data-only payload (no top-level `notification` key). This is
+              // required for reliable closed-app delivery: when a
+              // `notification` key is present, the browser's push service
+              // auto-displays it *before* our JS ever runs, which bypasses
+              // firebase-messaging-sw.js's onBackgroundMessage handler
+              // entirely — we lose control of the icon, click target, and
+              // any dedupe/tag logic, and can't verify it actually fired.
+              // With a data-only message, the push event always reaches our
+              // service worker, which explicitly calls showNotification().
+              data: {
+                title: "Today's DSA plan is waiting",
+                body,
+                link: "/today",
+              },
+              webpush: {
+                // High urgency asks the browser/OS push service to wake the
+                // device promptly instead of coalescing/delaying delivery —
+                // important specifically for the "app fully closed" case.
+                headers: { Urgency: "high" },
+                fcmOptions: { link: "/today" },
+              },
             });
             // Prune tokens Firebase reports as dead so we stop retrying them.
             await Promise.all(
@@ -159,7 +184,7 @@ export const sendReminders = onSchedule(
                   code === "messaging/registration-token-not-registered" ||
                   code === "messaging/invalid-registration-token"
                 ) {
-                  return db.doc(`users/${uid}/pushSubscriptions/${tokens[i]}`).delete().catch(() => {});
+                  return db.doc(`users/${uid}/pushSubscriptions/${tokens[i]}`).delete().catch(() => { });
                 }
                 return Promise.resolve();
               }),
@@ -213,7 +238,7 @@ export const sendReminders = onSchedule(
                 email,
                 `Contest Alert: ${title} starts in 30 minutes!`,
                 `remind as contest is in 30 min make sure to attend\n\nJoin here: ${url}`
-              ).catch(() => {});
+              ).catch(() => { });
             }
           }
         }
@@ -253,7 +278,7 @@ export const deleteUserData = beforeUserDeleted(async (event: AuthBlockingEvent)
     }
   }
 
-  await db.doc(`users/${uid}`).delete().catch(() => {});
+  await db.doc(`users/${uid}`).delete().catch(() => { });
   logger.info(`deleteUserData: wiped Firestore data for uid=${uid}`);
 });
 
