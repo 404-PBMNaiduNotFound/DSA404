@@ -162,7 +162,7 @@ function StatsBar() {
     {
       ref: cPatterns,
       value: REAL_PATTERNS_COUNT,
-      label: "Patterns & 28 Sections",
+      label: `Patterns & ${REAL_SECTIONS_COUNT} Sections`,
       sub: `${REAL_PATTERNS_COUNT} Key Patterns (Arrays to Graphs & DP)`,
       prefix: "",
       icon: LayoutGrid,
@@ -195,7 +195,7 @@ function StatsBar() {
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full">
       {stats.map((s, idx) => {
         const Icon = s.icon;
-        const tagLabels = ["LIVE_SYNC", "O(N)_PATH", "// ALT_SET", "63_PATTERNS", "TOP_TIER", "AI_PLUGINS"];
+        const tagLabels = ["LIVE_SYNC", "O(N)_PATH", "// ALT_SET", `${REAL_PATTERNS_COUNT}_PATTERNS`, "TOP_TIER", "AI_PLUGINS"];
         const tagColors = [
           "text-rose-500 bg-rose-500/10 border-rose-500/30",
           "text-blue-500 bg-blue-500/10 border-blue-500/30",
@@ -247,7 +247,7 @@ function MottoCardsSection() {
       question: "Problem not found?",
       action: "Find it.",
       badge: "Core 404 Roadmap",
-      desc: "Instant access to 357 roadmap problems & 567 practice sheets",
+      desc: `Instant access to ${REAL_TOTAL_PROBLEMS} roadmap problems & ${REAL_PRACTICE_PROBLEMS_COUNT} practice sheets`,
       leftBorder: "border-l-4 border-l-sky-500 border-sky-500/30",
       iconBg: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30",
       actionColor: "text-sky-600 dark:text-sky-400 font-black",
@@ -270,8 +270,8 @@ function MottoCardsSection() {
       num: "03",
       question: "Problem solved?",
       action: "Master it.",
-      badge: "63 Key Patterns",
-      desc: "Internalize reusable techniques across 28 DSA sections",
+      badge: `${REAL_PATTERNS_COUNT} Key Patterns`,
+      desc: `Internalize reusable techniques across ${REAL_SECTIONS_COUNT} DSA sections`,
       leftBorder: "border-l-4 border-l-emerald-500 border-emerald-500/30",
       iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
       actionColor: "text-emerald-600 dark:text-emerald-400 font-black",

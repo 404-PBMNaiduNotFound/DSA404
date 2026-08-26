@@ -29,7 +29,20 @@ interface UserSettingsRow {
   morningReminderTime?: string;
   lastMorningReminderSentOn?: string;
   contestReminderEnabled?: boolean;
+  lastWeekdayQuoteSentOn?: string;
+  lastWeekendQuoteSentPeriod?: string;
 }
+
+const MOTIVATIONAL_QUOTES = [
+  "Consistency is what transforms average into excellence. Keep coding!",
+  "A bug is just a puzzle waiting to be solved. Don't give up!",
+  "The expert in anything was once a beginner. Keep pushing forward.",
+  "Your streak is a reflection of your discipline. Maintain it!",
+  "Every problem you solve today makes you a better developer tomorrow.",
+  "Success is the sum of small efforts, repeated day in and day out.",
+  "DSA is hard, but so are you. Keep grinding!",
+  "Don't practice until you get it right. Practice until you can't get it wrong.",
+];
 
 /** Sends one push (if tokens exist) + one email (if enabled) to a user. Non-fatal on failure. */
 async function notifyUser(
@@ -55,8 +68,15 @@ async function notifyUser(
       if (tokens.length > 0) {
         const result = await getMessaging().sendEachForMulticast({
           tokens,
-          notification: { title: opts.title, body: opts.body },
-          webpush: { fcmOptions: { link: opts.link ?? "/today" } },
+          data: {
+            title: opts.title,
+            body: opts.body,
+            link: opts.link ?? "/today",
+          },
+          webpush: {
+            headers: { Urgency: "high" },
+            fcmOptions: { link: opts.link ?? "/today" },
+          },
         });
         await Promise.all(
           result.responses.map((r, i) => {
@@ -66,7 +86,7 @@ async function notifyUser(
               code === "messaging/registration-token-not-registered" ||
               code === "messaging/invalid-registration-token"
             ) {
-              return db.doc(`users/${uid}/pushSubscriptions/${tokens[i]}`).delete().catch(() => {});
+              return db.doc(`users/${uid}/pushSubscriptions/${tokens[i]}`).delete().catch(() => { });
             }
             return Promise.resolve();
           })
@@ -103,6 +123,17 @@ function todayIsoInTz(timeZone: string): string {
   }
 }
 
+function dayOfWeekInTz(timeZone: string): number {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).formatToParts(new Date());
+    const w = parts.find((p) => p.type === "weekday")?.value ?? "";
+    const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    return map[w] ?? new Date().getUTCDay();
+  } catch {
+    return new Date().getUTCDay();
+  }
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const secret = searchParams.get("secret");
@@ -116,6 +147,7 @@ export async function GET(req: Request) {
   let morningSent = 0;
   let contestSent = 0;
   let topicSent = 0;
+  let quoteSent = 0;
 
   const settingsSnap = await db
     .collectionGroup("settings")
@@ -127,13 +159,12 @@ export async function GET(req: Request) {
     .map((d) => ({ uid: d.ref.parent.parent!.id, ...d.data() }) as UserSettingsRow)
     .filter((row) => row.pushEnabled || row.emailEnabled);
 
-  // ── 1. Evening "problems left" reminder (once/day, at reminderTime) ──────
+  // ── 1. Compulsory Evening 9:30 PM Unresolved Problem Reminder ───────────
   const eveningDue = candidates.filter((row) => {
     const tz = row.timezone || "Asia/Kolkata";
     const today = todayIsoInTz(tz);
     if (row.lastReminderSentOn === today) return false;
-    const [h, m] = String(row.reminderTime ?? "19:00").split(":").map(Number);
-    return nowMinutesInTz(tz) >= (h || 0) * 60 + (m || 0);
+    return nowMinutesInTz(tz) >= 21 * 60 + 30; // 9:30 PM
   });
 
   for (const row of eveningDue) {
@@ -152,25 +183,23 @@ export async function GET(req: Request) {
       const day = daySnap.docs[0].data();
 
       const problems = (day.problems ?? []) as { done: boolean }[];
-      const checklist = (day.checklist ?? []) as { done: boolean }[];
       const total = problems.length;
       const done = problems.filter((p) => p.done).length;
-      const allChecked = checklist.length > 0 && checklist.every((c) => c.done);
 
-      if (total > 0 && done >= total && allChecked) {
+      // Condition: ONLY send if total > 0 AND done === 0
+      if (total === 0 || done > 0) {
         await settingsRef.set({ lastReminderSentOn: today }, { merge: true });
         continue;
       }
 
-      const remaining = Math.max(total - done, 0);
       await notifyUser(
         db,
         uid,
         {
           pushEnabled: row.pushEnabled,
           emailEnabled: row.emailEnabled,
-          title: `Daily DSA Reminder: ${day.topic}`,
-          body: `You have ${remaining} problem${remaining !== 1 ? "s" : ""} left today. Log in and complete it before your streak breaks.`,
+          title: "DSA⁴⁰⁴ Unresolved Problem Reminder",
+          body: `You have 0 solved of ${total} scheduled problem${total !== 1 ? "s" : ""} today in ${day.topic || "today's plan"}. Log in and solve your problem before your streak breaks!`,
           link: "/today",
         },
         errors
@@ -234,7 +263,7 @@ export async function GET(req: Request) {
     }
   }
 
-  // ── 3. Contest starting-soon alerts (1hr and 10min windows) ──────────────
+  // ── 3. Contest reminders (Morning alert, 1hr, and 10min windows) ─────────
   const contestCandidates = candidates.filter((row) => row.contestReminderEnabled);
   if (contestCandidates.length > 0 && process.env.APP_URL) {
     try {
@@ -246,11 +275,44 @@ export async function GET(req: Request) {
 
       for (const row of contestCandidates) {
         const uid = row.uid;
+        const tz = row.timezone || "Asia/Kolkata";
+        const today = todayIsoInTz(tz);
+        const currentMins = nowMinutesInTz(tz);
+
         for (const contest of contests) {
+          const contestStartDateIso = new Date(contest.startMs).toISOString().slice(0, 10);
+          
+          // Morning contest alert if contest is today
+          if (contestStartDateIso === today && currentMins >= 8 * 60) {
+            const morningSentRef = db.doc(`users/${uid}/contestRemindersSent/${contest.id}_morning`);
+            const morningSentSnap = await morningSentRef.get();
+            if (!morningSentSnap.exists) {
+              try {
+                await notifyUser(
+                  db,
+                  uid,
+                  {
+                    pushEnabled: row.pushEnabled,
+                    emailEnabled: row.emailEnabled,
+                    title: "🏆 Contest Alert",
+                    body: `You have a contest today: ${contest.title}`,
+                    link: "/contests",
+                  },
+                  errors
+                );
+                await morningSentRef.set({ sentAt: new Date().toISOString() });
+                contestSent += 1;
+              } catch (e) {
+                errors.push(`${uid} contest morning: ${e instanceof Error ? e.message : String(e)}`);
+              }
+            }
+          }
+
+          // 1-hour and 10-minute start-soon alerts
           const diffMs = contest.startMs - nowMs;
-          const windows: { key: string; label: string; lo: number; hi: number }[] = [
-            { key: "1h", label: "1 hour", lo: 50, hi: 70 },
-            { key: "10m", label: "10 mins", lo: 5, hi: 15 },
+          const windows: { key: string; lo: number; hi: number; bodyText: string }[] = [
+            { key: "1h", lo: 50, hi: 70, bodyText: `Your contest ${contest.title} starts in 1 hour.` },
+            { key: "10m", lo: 5, hi: 15, bodyText: `Your contest ${contest.title} starts in 10 minutes.` },
           ];
           for (const w of windows) {
             if (diffMs <= w.hi * 60 * 1000 && diffMs > w.lo * 60 * 1000) {
@@ -265,7 +327,7 @@ export async function GET(req: Request) {
                     pushEnabled: row.pushEnabled,
                     emailEnabled: row.emailEnabled,
                     title: "🏆 Contest Starting Soon!",
-                    body: `"${contest.title}" on ${contest.platform} starts in ${w.label}!`,
+                    body: w.bodyText,
                     link: "/contests",
                   },
                   errors
@@ -286,7 +348,73 @@ export async function GET(req: Request) {
     errors.push("APP_URL env var not set — contest reminders skipped");
   }
 
-  // ── 4. Topic revision reminders (per-reminder, one-shot) ─────────────────
+  // ── 4. Motivational Quotes (Backend FCM Delivery - Closed-App Support) ────
+  for (const row of candidates) {
+    const uid = row.uid;
+    try {
+      const tz = row.timezone || "Asia/Kolkata";
+      const today = todayIsoInTz(tz);
+      const currentMins = nowMinutesInTz(tz);
+      const dow = dayOfWeekInTz(tz);
+      const isWeekend = dow === 0 || dow === 6;
+      const settingsRef = db.doc(`users/${uid}/settings/prefs`);
+
+      if (!isWeekend) {
+        // Mon-Fri: 5:00 PM to 10:00 PM window
+        if (currentMins >= 17 * 60 && currentMins <= 22 * 60) {
+          if (row.lastWeekdayQuoteSentOn !== today) {
+            const randomQuote = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
+            await notifyUser(
+              db,
+              uid,
+              {
+                pushEnabled: row.pushEnabled,
+                emailEnabled: row.emailEnabled,
+                title: "💡 Daily Motivation",
+                body: randomQuote,
+                link: "/today",
+              },
+              errors
+            );
+            await settingsRef.set({ lastWeekdayQuoteSentOn: today }, { merge: true });
+            quoteSent += 1;
+          }
+        }
+      } else {
+        // Sat-Sun: 4 periods (morning, afternoon, evening, night)
+        let periodKey: string | null = null;
+        if (currentMins >= 8 * 60 && currentMins < 12 * 60) periodKey = "morning";
+        else if (currentMins >= 12 * 60 && currentMins < 17 * 60) periodKey = "afternoon";
+        else if (currentMins >= 17 * 60 && currentMins < 21 * 60) periodKey = "evening";
+        else if (currentMins >= 21 * 60 && currentMins <= 23 * 60 + 59) periodKey = "night";
+
+        if (periodKey) {
+          const stampVal = `${today}_${periodKey}`;
+          if (row.lastWeekendQuoteSentPeriod !== stampVal) {
+            const randomQuote = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
+            await notifyUser(
+              db,
+              uid,
+              {
+                pushEnabled: row.pushEnabled,
+                emailEnabled: row.emailEnabled,
+                title: `💡 Weekend Motivation`,
+                body: randomQuote,
+                link: "/today",
+              },
+              errors
+            );
+            await settingsRef.set({ lastWeekendQuoteSentPeriod: stampVal }, { merge: true });
+            quoteSent += 1;
+          }
+        }
+      }
+    } catch (e) {
+      errors.push(`${uid} quote: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  // ── 5. Topic revision reminders (per-reminder, one-shot) ─────────────────
   try {
     const topicRemindersSnap = await db
       .collectionGroup("reminders")
@@ -336,6 +464,7 @@ export async function GET(req: Request) {
     morningSent,
     contestSent,
     topicSent,
+    quoteSent,
     errors,
   });
 }

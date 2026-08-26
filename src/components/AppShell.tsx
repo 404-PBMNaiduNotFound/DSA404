@@ -54,7 +54,6 @@ import { GlobalSearchModal } from "@/components/GlobalSearchModal";
 
 const NAV = [
   { to: "/today", label: "Today's Workspace", icon: Sparkles, hint: "Your daily topic, core problems, streak, and activity heatmap." },
-  { to: "/messages", label: "Messages & Alerts", icon: Megaphone, hint: "Platform announcements, broadcast alerts, and notification history." },
   { to: "/problems", label: "Problems", icon: Code2, hint: "838+ problems from 2 curated sets — filter by platform, difficulty, or sheet." },
   { to: "/topics", label: "Topic View", icon: LayoutGrid, hint: "All 42 Core 404 topics. Expand any topic, skip topics, track progress." },
   { to: "/weeks", label: "Week View", icon: CalendarRange, hint: "Your 17-week roadmap. See every day's status and jump to any day directly." },

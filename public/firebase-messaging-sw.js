@@ -21,13 +21,19 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// The backend now sends data-only FCM messages (no top-level `notification`
+// key) specifically so this handler is guaranteed to run for every message,
+// in every app state — foreground, backgrounded, and fully closed. If a
+// `notification` key is ever added back on the sender side, the push
+// service will auto-display it and this handler will NOT fire, so keep the
+// two in sync.
 messaging.onBackgroundMessage((payload) => {
-  console.log("[firebase-messaging-sw] Stage F: Background FCM message received:", payload);
-  const title = payload.notification?.title ?? payload.data?.title ?? "DSA Tracker";
-  const body =
-    payload.notification?.body ?? payload.data?.body ?? "You still have problems left for today.";
-  const tag = payload.data?.tag ?? payload.notification?.tag ?? ("dsa-reminder-" + Date.now());
-  const url = payload.data?.url ?? payload.fcmOptions?.link ?? "/today";
+  console.log("[firebase-messaging-sw] Background FCM message received:", payload);
+  const data = payload.data ?? {};
+  const title = data.title ?? "DSA Tracker";
+  const body = data.body ?? "You still have problems left for today.";
+  const tag = data.tag ?? ("dsa-reminder-" + Date.now());
+  const url = data.link ?? "/today";
 
   self.registration.showNotification(title, {
     body,
@@ -42,15 +48,18 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const urlToOpen = event.notification.data?.url || "/today";
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+    (async () => {
+      const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const client of clientList) {
-        if (client.url && "focus" in client) {
-          return client.focus();
+        if ("focus" in client) {
+          await client.focus();
+          if ("navigate" in client) await client.navigate(urlToOpen);
+          return;
         }
       }
       if (self.clients.openWindow) {
-        return self.clients.openWindow(urlToOpen);
+        await self.clients.openWindow(urlToOpen);
       }
-    })
+    })()
   );
 });

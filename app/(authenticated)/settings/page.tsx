@@ -101,7 +101,6 @@ export default function SettingsPage() {
   const [planStartDate, setPlanStartDate] = useState(() => startDate);
   const [startDirty, setStartDirty] = useState(false);
   const [startBusy, setStartBusy] = useState(false);
-  const [testingFcm, setTestingFcm] = useState(false);
 
   // Sync counts when settings load from Firestore
   useEffect(() => {
@@ -562,10 +561,32 @@ export default function SettingsPage() {
 
       <Section
         icon={Bell}
-        title="Reminders"
-        description="Configure browser notifications for morning topics, upcoming contests, and daily backlog, as well as email notifications for revision topics."
+        title="Reminders & Notifications"
+        description="Comprehensive configuration for background push and email alerts."
       >
         <div className="space-y-5">
+          {/* Brief Detail & Troubleshooting Box */}
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-xs space-y-2">
+            <p className="font-semibold text-primary text-sm flex items-center gap-1.5">
+              <span>🔔 How Notifications Work & Delivery Guide</span>
+            </p>
+            <p className="text-muted-foreground leading-relaxed">
+              Notifications are dispatched directly from the server using background FCM push and email services, so they arrive on your device even when the website or browser tab is completely closed.
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-muted-foreground pl-1">
+              <li><strong>Morning Topic Alert:</strong> Sent at your morning reminder time with today's scheduled DSA topic.</li>
+              <li><strong>Contest Alerts:</strong> Sent on contest day morning, 1 hour before start, and 10 minutes before start.</li>
+              <li><strong>Evening Unresolved Problem Nudge:</strong> Sent at 9:30 PM (or set evening time) if you have 0 problems solved today.</li>
+              <li><strong>Motivational Quotes:</strong> Sent weekdays (5 PM – 10 PM) and 4 weekend periods (morning, afternoon, evening, night).</li>
+            </ul>
+            <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-foreground">
+              <p className="font-bold text-amber-600 dark:text-amber-400 mb-0.5">⚠️ Not Receiving Notifications?</p>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                If push alerts stop arriving, turn OFF the master <strong>Browser notifications</strong> toggle below, turn it back ON once again to re-register your device, allow browser permissions if asked, and click <strong>Test Notification 🔔</strong> to test popup delivery on your OS.
+              </p>
+            </div>
+          </div>
+
           {/* Master Browser Notification Switch */}
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -582,92 +603,24 @@ export default function SettingsPage() {
             </div>
             <div className="flex items-center gap-2">
               {pushPerm === "granted" && (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      await registerReminderWorker();
-                      await showLocalReminder(
-                        "🔔 Test Notification — DSA404",
-                        "Browser notifications are working perfectly on your device!"
-                      );
-                      toast.success("Test notification sent!", {
-                        description: "If you didn't see a popup, check your OS Notification & Focus/Do Not Disturb settings.",
-                      });
-                    }}
-                    className="text-xs h-8"
-                  >
-                    Test Notification 🔔
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    disabled={testingFcm}
-                    onClick={async () => {
-                      setTestingFcm(true);
-                      try {
-                        const currentUser = auth.currentUser;
-                        const userExists = Boolean(currentUser);
-                        const uid = currentUser?.uid ? `${currentUser.uid.slice(0, 6)}...` : "none";
-
-                        console.info(`[settings] Firebase user exists: ${userExists}`);
-                        console.info(`[settings] Firebase user UID: ${uid}`);
-
-                        if (!currentUser) {
-                          toast.error("Not authenticated", { description: "Please log in first." });
-                          return;
-                        }
-
-                        const idToken = await currentUser.getIdToken(true);
-                        const tokenLength = idToken ? idToken.length : 0;
-                        const jwtSegments = idToken ? idToken.split(".").length : 0;
-                        const isJwtFormat = jwtSegments === 3;
-
-                        console.info(`[settings] ID token obtained: ${Boolean(idToken)}`);
-                        console.info(`[settings] ID token length: ${tokenLength}`);
-                        console.info(`[settings] ID token JWT format: ${isJwtFormat}`);
-
-                        if (!isJwtFormat) {
-                          console.error("[settings] ERROR: Token returned by getIdToken(true) is not a 3-segment JWT!");
-                          toast.error("Authentication Token Error", { description: "Obtained token is invalid format." });
-                          return;
-                        }
-
-                        const res = await fetch("/api/push/test", {
-                          method: "POST",
-                          headers: {
-                            Authorization: `Bearer ${idToken}`,
-                            "Content-Type": "application/json",
-                          },
-                        });
-                        const data = await res.json();
-                        console.info("[settings] Direct FCM Push Test response:", data);
-
-                        if (data.success) {
-                          toast.success("Direct FCM Push Delivered! 🚀", {
-                            description: `Tokens target: ${data.tokensFound}, Success count: ${data.successCount}, Failures: ${data.failureCount}`,
-                          });
-                        } else {
-                          toast.error(`FCM Test Failed (Stage ${data.stage || "C"})`, {
-                            description: data.message || "Could not send direct FCM push message.",
-                          });
-                        }
-                      } catch (err: any) {
-                        toast.error("Error calling FCM test API", {
-                          description: err?.message || String(err),
-                        });
-                      } finally {
-                        setTestingFcm(false);
-                      }
-                    }}
-                    className="text-xs h-8"
-                  >
-                    {testingFcm ? "Sending Push..." : "Test Direct FCM Push 🚀"}
-                  </Button>
-                </>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    await registerReminderWorker();
+                    await showLocalReminder(
+                      "🔔 Test Notification — DSA404",
+                      "Browser notifications are working perfectly on your device!"
+                    );
+                    toast.success("Test notification sent!", {
+                      description: "If you didn't see a popup, check your OS Notification & Focus/Do Not Disturb settings.",
+                    });
+                  }}
+                  className="text-xs h-8"
+                >
+                  Test Notification 🔔
+                </Button>
               )}
               <Switch
                 id="push"

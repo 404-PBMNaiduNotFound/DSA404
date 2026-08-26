@@ -44,6 +44,10 @@ import {
   PanelLeft,
   ChevronLeft,
   ChevronRight,
+  Bell,
+  Clock,
+  Mail,
+  Palette,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -689,14 +693,20 @@ function ProfilePanel() {
 
 function SettingsPanel() {
   const [workload, setWorkload] = useState(3);
-  const [lang, setLang] = useState("C++");
+  const [pushEnabled, setPushEnabled] = useState(true);
+  const [morningEnabled, setMorningEnabled] = useState(true);
+  const [morningTime, setMorningTime] = useState("08:00");
+  const [contestEnabled, setContestEnabled] = useState(true);
+  const [eveningTime, setEveningTime] = useState("21:30");
+  const [emailEnabled, setEmailEnabled] = useState(true);
 
   return (
     <div className="space-y-5">
+      {/* 1. Workload Customizer */}
       <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
         <div>
           <h3 className="font-display font-bold text-base text-foreground">Roadmap & Workload Customizer</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">Tune your daily problem target and primary programming language</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Tune your daily problem target for optimal learning pace</p>
         </div>
 
         {/* Daily Target Slider */}
@@ -712,7 +722,7 @@ function SettingsPanel() {
                 type="button"
                 onClick={() => setWorkload(num)}
                 className={cn(
-                  "flex-1 py-2 rounded-lg font-mono text-xs font-bold border transition-colors",
+                  "flex-1 py-2 rounded-lg font-mono text-xs font-bold border transition-colors cursor-pointer",
                   workload === num
                     ? "bg-primary text-primary-foreground border-primary"
                     : "border-border text-muted-foreground hover:bg-muted"
@@ -726,26 +736,139 @@ function SettingsPanel() {
             Current pace: <strong>{workload} problems daily</strong> (1 Easy, 1 Medium, 1 Hard). Estimated roadmap completion: <strong>119 days</strong>.
           </p>
         </div>
+      </div>
 
-        {/* Preferred Language Selector */}
-        <div className="rounded-xl border border-border/80 bg-background p-4 space-y-2">
-          <span className="text-xs font-semibold text-foreground block">Primary Coding Language</span>
-          <div className="flex flex-wrap gap-2">
-            {["C++", "Java", "Python", "JavaScript", "Go"].map((l) => (
-              <button
-                key={l}
-                type="button"
-                onClick={() => setLang(l)}
+      {/* 2. Interactive Notification Customizer */}
+      <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Bell className="size-5 text-primary" />
+          <div>
+            <h3 className="font-display font-bold text-base text-foreground">Notification & Reminder Controls</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Customize your morning alerts, contest notifications, and evening unresolved problem nudges anytime</p>
+          </div>
+        </div>
+
+        <div className="space-y-4 pt-1">
+          {/* Master Browser Push Switch */}
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-border/80 bg-background p-4">
+            <div>
+              <span className="text-sm font-bold text-foreground block">Browser & Mobile Push Notifications</span>
+              <p className="text-xs text-muted-foreground">Receive real-time push alerts on your phone or desktop even when the app is closed.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPushEnabled(!pushEnabled)}
+              className={cn(
+                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                pushEnabled ? "bg-primary" : "bg-muted-foreground/30"
+              )}
+            >
+              <span
                 className={cn(
-                  "px-4 py-1.5 rounded-lg text-xs font-mono font-bold border transition-colors",
-                  lang === l
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "border-border text-muted-foreground hover:bg-muted"
+                  "pointer-events-none inline-block size-5 transform rounded-full bg-background shadow-lg ring-0 transition duration-200 ease-in-out",
+                  pushEnabled ? "translate-x-5" : "translate-x-0"
                 )}
-              >
-                {l}
-              </button>
-            ))}
+              />
+            </button>
+          </div>
+
+          {pushEnabled && (
+            <div className="ml-2 pl-4 border-l-2 border-primary/30 space-y-3">
+              {/* Morning Topic Reminder */}
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+                <div>
+                  <span className="text-xs font-semibold text-foreground block">☀️ Morning Topic & Plan Reminder</span>
+                  <p className="text-[11px] text-muted-foreground">Scheduled morning topic alert to kickstart your day.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="time"
+                    value={morningTime}
+                    onChange={(e) => setMorningTime(e.target.value)}
+                    disabled={!morningEnabled}
+                    className="h-8 w-28 rounded-md border border-border bg-background px-2 font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setMorningEnabled(!morningEnabled)}
+                    className={cn(
+                      "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out",
+                      morningEnabled ? "bg-primary" : "bg-muted-foreground/30"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "pointer-events-none inline-block size-4 transform rounded-full bg-background shadow-lg ring-0 transition duration-200 ease-in-out",
+                        morningEnabled ? "translate-x-4" : "translate-x-0"
+                      )}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Contest Alerts (Morning, 1h, 10m) */}
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+                <div>
+                  <span className="text-xs font-semibold text-foreground block">🏆 Coding Contest Alerts (Morning, 1h & 10m)</span>
+                  <p className="text-[11px] text-muted-foreground">Notifies you on contest day morning, 1 hour before, and 10 minutes before start.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setContestEnabled(!contestEnabled)}
+                  className={cn(
+                    "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out",
+                    contestEnabled ? "bg-primary" : "bg-muted-foreground/30"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "pointer-events-none inline-block size-4 transform rounded-full bg-background shadow-lg ring-0 transition duration-200 ease-in-out",
+                      contestEnabled ? "translate-x-4" : "translate-x-0"
+                    )}
+                  />
+                </button>
+              </div>
+
+              {/* Evening 9:30 PM Unresolved Problem Reminder */}
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+                <div>
+                  <span className="text-xs font-semibold text-foreground block">🌙 Compulsory Unresolved Problem Reminder</span>
+                  <p className="text-[11px] text-muted-foreground">Fires if you have 0 problems solved today when reminder time arrives.</p>
+                </div>
+                <input
+                  type="time"
+                  value={eveningTime}
+                  onChange={(e) => setEveningTime(e.target.value)}
+                  className="h-8 w-28 rounded-md border border-border bg-background px-2 font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Email Notifications Switch */}
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-border/80 bg-background p-4">
+            <div className="flex items-start gap-2.5">
+              <Mail className="size-4 text-primary mt-0.5 shrink-0" />
+              <div>
+                <span className="text-sm font-bold text-foreground block">Email Notifications</span>
+                <p className="text-xs text-muted-foreground">Receive revision topic reminders and contest schedules via email.</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEmailEnabled(!emailEnabled)}
+              className={cn(
+                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                emailEnabled ? "bg-primary" : "bg-muted-foreground/30"
+              )}
+            >
+              <span
+                className={cn(
+                  "pointer-events-none inline-block size-5 transform rounded-full bg-background shadow-lg ring-0 transition duration-200 ease-in-out",
+                  emailEnabled ? "translate-x-5" : "translate-x-0"
+                )}
+              />
+            </button>
           </div>
         </div>
       </div>
@@ -757,6 +880,7 @@ export function DemoShell() {
   const [activeTab, setActiveTab] = useState<DemoTab>("today");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [colorModalOpen, setColorModalOpen] = useState(false);
 
   return (
     <div className="rounded-2xl sm:rounded-3xl border border-border bg-card shadow-2xl overflow-hidden">
@@ -828,10 +952,23 @@ export function DemoShell() {
             })}
           </div>
 
-          <div className="mt-auto pt-4 border-t border-border/60 text-center w-full">
+          <div className="mt-auto pt-3 border-t border-border/60 text-center w-full space-y-2">
+            <button
+              type="button"
+              onClick={() => setColorModalOpen(true)}
+              title="Customize Color & Font"
+              className={cn(
+                "flex w-full items-center gap-2 rounded-xl text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors border border-border/50 bg-background/50 cursor-pointer",
+                isCollapsed ? "justify-center p-2" : "px-2.5 py-1.5"
+              )}
+            >
+              <Palette className="size-3.5 text-primary shrink-0" />
+              {!isCollapsed && <span className="truncate">Customize Color & Font</span>}
+            </button>
+
             {!isCollapsed ? (
               <>
-                <p className="text-[11px] text-muted-foreground mb-2">Want to save your real progress?</p>
+                <p className="text-[11px] text-muted-foreground mb-1">Want to save your real progress?</p>
                 <Button asChild size="sm" className="w-full font-mono text-xs">
                   <Link href="/auth">Register Now</Link>
                 </Button>
@@ -869,6 +1006,17 @@ export function DemoShell() {
                 </button>
               );
             })}
+            <button
+              type="button"
+              onClick={() => {
+                setColorModalOpen(true);
+                setMobileMenuOpen(false);
+              }}
+              className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-left text-muted-foreground hover:bg-muted"
+            >
+              <Palette className="size-4 text-primary shrink-0" />
+              <span>Customize Color & Font</span>
+            </button>
           </div>
         )}
 
@@ -886,6 +1034,58 @@ export function DemoShell() {
           {activeTab === "settings" && <SettingsPanel />}
         </main>
       </div>
+
+      {/* Color & Font Customizer Info Modal */}
+      {colorModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="size-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                  <Palette className="size-5" />
+                </div>
+                <div>
+                  <h4 className="font-display font-bold text-base text-foreground">Customize Color & Font</h4>
+                  <p className="text-xs text-muted-foreground">Personalize your learning environment</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setColorModalOpen(false)}
+                className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-muted-foreground leading-relaxed">
+              <p className="text-foreground font-medium">
+                In the complete DSA404 workspace, signed-in users can open the <strong>Theme & Font Customizer</strong> anytime to personalize:
+              </p>
+              <ul className="space-y-2 font-mono text-[11px] border-l-2 border-primary/30 pl-3">
+                <li className="flex items-start gap-1.5">
+                  <span className="text-primary font-bold">🎨 Accent Color Palettes:</span> Select from Orange, Emerald, Royal Blue, Purple, Rose, Cyan & Gold.
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-primary font-bold">🌙 Theme Surface Modes:</span> Switch between Dark Mode, High Contrast Light Mode, or OLED Pitch Black.
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-primary font-bold">🔤 Font Families & Scaling:</span> Choose from Inter, JetBrains Mono, Outfit, or Roboto, and scale font sizes for effortless code readability.
+                </li>
+              </ul>
+              <p className="text-[11px]">
+                All customized theme preferences are automatically saved to your account and synced across your desktop & mobile browsers.
+              </p>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <Button size="sm" onClick={() => setColorModalOpen(false)} className="font-mono text-xs cursor-pointer">
+                Got It ✓
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
