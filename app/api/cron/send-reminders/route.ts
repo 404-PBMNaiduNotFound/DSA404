@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getMessaging } from "firebase-admin/messaging";
 import { getAdminDb } from "@/integrations/firebase/admin.server";
-import { sendEmail } from "@/lib/email";
+import { syncContestsToFirestore, getContestsFromFirestore } from "../../contests/route";
 
 /**
  * Runs on an EXTERNAL schedule (cron-job.org, GitHub Actions cron, etc.)
@@ -51,23 +51,14 @@ async function notifyUser(
   opts: { pushEnabled?: boolean; emailEnabled?: boolean; title: string; body: string; link?: string },
   errors: string[]
 ) {
-  if (opts.emailEnabled) {
-    try {
-      const profileSnap = await db.doc(`users/${uid}`).get();
-      const email = profileSnap.data()?.email as string | undefined;
-      if (email) await sendEmail(email, opts.title, opts.body);
-    } catch (e) {
-      errors.push(`${uid} email: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
-
   if (opts.pushEnabled) {
     try {
       const subsSnap = await db.collection(`users/${uid}/pushSubscriptions`).get();
       const tokens = subsSnap.docs.map((d) => (d.data().token as string) ?? d.id).filter(Boolean);
-      if (tokens.length > 0) {
+      const uniqueTokens = Array.from(new Set(tokens));
+      if (uniqueTokens.length > 0) {
         const result = await getMessaging().sendEachForMulticast({
-          tokens,
+          tokens: uniqueTokens,
           data: {
             title: opts.title,
             body: opts.body,
@@ -86,7 +77,7 @@ async function notifyUser(
               code === "messaging/registration-token-not-registered" ||
               code === "messaging/invalid-registration-token"
             ) {
-              return db.doc(`users/${uid}/pushSubscriptions/${tokens[i]}`).delete().catch(() => { });
+              return db.doc(`users/${uid}/pushSubscriptions/${uniqueTokens[i]}`).delete().catch(() => { });
             }
             return Promise.resolve();
           })
@@ -265,12 +256,12 @@ export async function GET(req: Request) {
 
   // ── 3. Contest reminders (Morning alert, 1hr, and 10min windows) ─────────
   const contestCandidates = candidates.filter((row) => row.contestReminderEnabled);
-  if (contestCandidates.length > 0 && process.env.APP_URL) {
+  if (contestCandidates.length > 0) {
     try {
-      const contestRes = await fetch(`${process.env.APP_URL}/api/contests`, { cache: "no-store" });
-      const contests: { id: string; title: string; platform: string; startMs: number }[] = contestRes.ok
-        ? await contestRes.json()
-        : [];
+      let contests = await syncContestsToFirestore();
+      if (contests.length === 0) {
+        contests = await getContestsFromFirestore();
+      }
       const nowMs = Date.now();
 
       for (const row of contestCandidates) {
@@ -344,8 +335,6 @@ export async function GET(req: Request) {
     } catch (e) {
       errors.push(`contests fetch: ${e instanceof Error ? e.message : String(e)}`);
     }
-  } else if (contestCandidates.length > 0 && !process.env.APP_URL) {
-    errors.push("APP_URL env var not set — contest reminders skipped");
   }
 
   // ── 4. Motivational Quotes (Backend FCM Delivery - Closed-App Support) ────

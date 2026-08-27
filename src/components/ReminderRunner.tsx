@@ -22,18 +22,6 @@ import { fetchTopicReminders, markTopicReminderTriggered } from "@/lib/reminders
 const STORAGE_KEY_EVENING = "dsa:last-local-reminder";
 const STORAGE_KEY_MORNING = "dsa:last-morning-reminder";
 const STORAGE_KEY_CONTEST = "dsa:last-contest-reminder";
-const STORAGE_KEY_QUOTE = "dsa:last-quote";
-
-const MOTIVATIONAL_QUOTES = [
-  "Consistency is what transforms average into excellence. Keep coding!",
-  "A bug is just a puzzle waiting to be solved. Don't give up!",
-  "The expert in anything was once a beginner. Keep pushing forward.",
-  "Your streak is a reflection of your discipline. Maintain it!",
-  "Every problem you solve today makes you a better developer tomorrow.",
-  "Success is the sum of small efforts, repeated day in and day out.",
-  "DSA is hard, but so are you. Keep grinding!",
-  "Don't practice until you get it right. Practice until you can't get it wrong."
-];
 
 export function ReminderRunner() {
   const { settings } = useSettings();
@@ -197,16 +185,7 @@ export function ReminderRunner() {
         }
       }
 
-      // --- 4. Daily Motivational Quote ---
-      if (window.localStorage.getItem(STORAGE_KEY_QUOTE) !== today) {
-        window.localStorage.setItem(STORAGE_KEY_QUOTE, today);
-        const randomQuote = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
-        // Staggered well past the morning/evening notifications above so
-        // multiple due reminders don't all pop in the same instant.
-        setTimeout(() => {
-          void showLocalReminder("Daily Motivation 💡", randomQuote);
-        }, 8000);
-      }
+
 
       // --- 5. Evening Daily Backlog Nudge ---
       if (nowMinutes < timeToMinutes(settings.reminderTime)) return;

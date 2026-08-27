@@ -17,7 +17,6 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { beforeUserDeleted, AuthBlockingEvent } from "firebase-functions/v2/identity";
 import { logger } from "firebase-functions/v2";
 import { defineSecret } from "firebase-functions/params";
-import { sendEmail } from "../../src/lib/email"; // Nodemailer utility
 
 initializeApp();
 const db = getFirestore();
@@ -139,20 +138,13 @@ export const sendReminders = onSchedule(
         const subject = `Daily DSA Reminder: ${day.topic}`;
         const body = `You have not solved the daily problem yet, please login and complete it.`;
 
-        if (row.emailEnabled) {
-          const profileSnap = await db.doc(`users/${uid}`).get();
-          const email = profileSnap.data()?.email as string | undefined;
-          if (email) {
-            await sendEmail(email, subject, body);
-          }
-        }
-
         if (row.pushEnabled) {
           const subsSnap = await db.collection(`users/${uid}/pushSubscriptions`).get();
           const tokens = subsSnap.docs.map((d) => (d.data().token as string) ?? d.id).filter(Boolean);
-          if (tokens.length > 0) {
+          const uniqueTokens = Array.from(new Set(tokens));
+          if (uniqueTokens.length > 0) {
             const result = await getMessaging().sendEachForMulticast({
-              tokens,
+              tokens: uniqueTokens,
               // Data-only payload (no top-level `notification` key). This is
               // required for reliable closed-app delivery: when a
               // `notification` key is present, the browser's push service
@@ -184,7 +176,7 @@ export const sendReminders = onSchedule(
                   code === "messaging/registration-token-not-registered" ||
                   code === "messaging/invalid-registration-token"
                 ) {
-                  return db.doc(`users/${uid}/pushSubscriptions/${tokens[i]}`).delete().catch(() => { });
+                  return db.doc(`users/${uid}/pushSubscriptions/${uniqueTokens[i]}`).delete().catch(() => { });
                 }
                 return Promise.resolve();
               }),
@@ -199,53 +191,7 @@ export const sendReminders = onSchedule(
       }
     }
 
-    // ── Contest Reminders (30 mins before start) ───────────────────────────
-    try {
-      const contestRes = await fetch("https://competeapi.vercel.app/contests").catch(() => null);
-      if (contestRes && contestRes.ok) {
-        const contests: any[] = await contestRes.json();
-        const nowMs = Date.now();
-        const thirtyMinMs = 30 * 60 * 1000;
-
-        // Find contests starting in 25-35 minutes from now
-        const upcomingContests = contests.filter((c: any) => {
-          const startMs = new Date(c.startTime || c.start_time).getTime();
-          const diff = startMs - nowMs;
-          return diff > 0 && diff <= thirtyMinMs && diff >= (20 * 60 * 1000);
-        });
-
-        if (upcomingContests.length > 0) {
-          const emailUsersSnap = await db
-            .collectionGroup("settings")
-            .where("emailEnabled", "==", true)
-            .get();
-
-          for (const docSnap of emailUsersSnap.docs) {
-            if (docSnap.id !== "prefs") continue;
-            const uid = docSnap.ref.parent.parent?.id;
-            if (!uid) continue;
-
-            const profileSnap = await db.doc(`users/${uid}`).get();
-            const email = profileSnap.data()?.email as string | undefined;
-            if (!email) continue;
-
-            for (const contest of upcomingContests) {
-              const title = contest.title || contest.name || "Coding Contest";
-              const platform = contest.site || contest.platform || "Platform";
-              const url = contest.url || contest.link || "#";
-
-              await sendEmail(
-                email,
-                `Contest Alert: ${title} starts in 30 minutes!`,
-                `remind as contest is in 30 min make sure to attend\n\nJoin here: ${url}`
-              ).catch(() => { });
-            }
-          }
-        }
-      }
-    } catch (e) {
-      logger.error("Contest reminder check failed", e);
-    }
+    // ── Contest Reminders ──────────────────────────────────────────────────
 
     logger.info(`sendReminders: checked=${due.length} sent=${sent} errors=${errors.length}`, {
       errors,

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAdminDb } from "@/integrations/firebase/admin.server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -12,10 +13,39 @@ export interface Contest {
   url: string;
 }
 
-// Codeforces should only surface real DSA / competitive-programming rounds —
-// exclude training camps, onsite practice sessions, and other non-CP listings
-// that occasionally show up in the public contest list.
 const CF_NON_CP_REGEX = /training|marathon|onsite|hiring\s*test|welcome\s*round/i;
+
+// ─── Strict Contest Validation ────────────────────────────────────────────────
+export function validateContest(c: any): Contest | null {
+  if (!c || typeof c !== "object") return null;
+
+  const validPlatforms = ["Codeforces", "CodeChef", "LeetCode", "HackerRank", "HackerEarth"];
+  if (!c.platform || !validPlatforms.includes(c.platform)) return null;
+
+  const title = typeof c.title === "string" ? c.title.trim() : "";
+  if (!title) return null;
+
+  const id = typeof c.id === "string" ? c.id.trim() : "";
+  if (!id) return null;
+
+  const startMs = Number(c.startMs);
+  if (isNaN(startMs) || startMs <= 0) return null;
+
+  const durationMs = Number(c.durationMs);
+  if (isNaN(durationMs) || durationMs <= 0) return null;
+
+  const url = typeof c.url === "string" ? c.url.trim() : "";
+  if (!url || (!url.startsWith("http://") && !url.startsWith("https://"))) return null;
+
+  return {
+    id,
+    platform: c.platform as Contest["platform"],
+    title,
+    startMs,
+    durationMs,
+    url,
+  };
+}
 
 // ─── CodeChef Fetcher ──────────────────────────────────────────────────────────
 async function fetchCodeChef(): Promise<Contest[]> {
@@ -65,7 +95,7 @@ async function fetchCodeChef(): Promise<Contest[]> {
       });
   } catch (e: any) {
     if (e?.name === "TimeoutError" || e?.code === 23) {
-      console.warn("CodeChef API timed out (8s limit reached), skipping CodeChef contests fetch.");
+      console.warn("CodeChef API timed out, skipping CodeChef contests fetch.");
     } else {
       console.warn("CodeChef fetch warning:", e?.message ?? e);
     }
@@ -191,7 +221,7 @@ async function fetchLeetCode(): Promise<Contest[]> {
 
     return all.map((c: any) => ({
       id: `lc-${c.titleSlug}`,
-      platform: "LeetCode",
+      platform: "LeetCode" as const,
       title: c.title,
       startMs: c.startTime * 1000,
       durationMs: (c.duration || 5400) * 1000,
@@ -294,38 +324,92 @@ function dedup(contests: Contest[]): Contest[] {
   });
 }
 
-let cachedResponse: { data: Contest[]; timestamp: number } | null = null;
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
+// ─── Backend Sync & Firestore Persistence ──────────────────────────────────────
+export async function syncContestsToFirestore(): Promise<Contest[]> {
+  try {
+    const results = await Promise.allSettled([
+      fetchCodeChef(),
+      fetchCodeforces(),
+      fetchLeetCode(),
+      fetchHackerRank(),
+      fetchHackerEarth(),
+    ]);
 
+    const rawAll = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+    const validated = rawAll.map(validateContest).filter((c): c is Contest => c !== null);
+    const sorted = dedup(validated).sort((a, b) => a.startMs - b.startMs);
+
+    if (sorted.length > 0) {
+      const db = getAdminDb();
+      const batchSize = 400;
+      const nowIso = new Date().toISOString();
+
+      for (let i = 0; i < sorted.length; i += batchSize) {
+        const batch = db.batch();
+        const chunk = sorted.slice(i, i + batchSize);
+        for (const contest of chunk) {
+          const docRef = db.collection("contests").doc(contest.id);
+          batch.set(docRef, { ...contest, updatedAt: nowIso }, { merge: true });
+        }
+        await batch.commit();
+      }
+
+      await db.doc("contests/meta").set(
+        {
+          lastFetchedAt: nowIso,
+          count: sorted.length,
+        },
+        { merge: true }
+      ).catch(() => {});
+    }
+
+    return sorted;
+  } catch (err) {
+    console.error("[api/contests] Error syncing contests to Firestore:", err);
+    return [];
+  }
+}
+
+export async function getContestsFromFirestore(): Promise<Contest[]> {
+  try {
+    const db = getAdminDb();
+    const snap = await db.collection("contests").get();
+    if (snap.empty) return [];
+
+    const now = Date.now();
+    const windowMs = 14 * 24 * 60 * 60 * 1000;
+
+    const list: Contest[] = [];
+    for (const docSnap of snap.docs) {
+      if (docSnap.id === "meta") continue;
+      const data = docSnap.data();
+      const valid = validateContest(data);
+      if (valid) {
+        if (valid.startMs + valid.durationMs > now - windowMs) {
+          list.push(valid);
+        }
+      }
+    }
+
+    return dedup(list).sort((a, b) => a.startMs - b.startMs);
+  } catch (err) {
+    console.error("[api/contests] Firestore read error:", err);
+    return [];
+  }
+}
+
+// ─── GET /api/contests (Database-backed read endpoint) ──────────────────────
 export async function GET() {
-  const now = Date.now();
-  if (cachedResponse && now - cachedResponse.timestamp < CACHE_TTL_MS) {
-    return NextResponse.json(cachedResponse.data, {
-      headers: {
-        "Cache-Control": "public, max-age=300, s-maxage=300, stale-while-revalidate=60",
-      },
-    });
+  let stored = await getContestsFromFirestore();
+
+  if (stored.length === 0) {
+    console.info("[api/contests] Database empty, triggering initial sync...");
+    stored = await syncContestsToFirestore();
   }
 
-  const results = await Promise.allSettled([
-    fetchCodeChef(),
-    fetchCodeforces(),
-    fetchLeetCode(),
-    fetchHackerRank(),
-    fetchHackerEarth(),
-  ]);
-
-  const all = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
-  const sorted = dedup(all).sort((a, b) => a.startMs - b.startMs);
-
-  if (sorted.length > 0) {
-    cachedResponse = { data: sorted, timestamp: now };
-  }
-
-  return NextResponse.json(sorted, {
+  return NextResponse.json(stored, {
     headers: {
       "Cache-Control": "public, max-age=300, s-maxage=300, stale-while-revalidate=60",
     },
   });
 }
-
