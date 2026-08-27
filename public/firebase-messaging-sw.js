@@ -35,7 +35,7 @@ messaging.onBackgroundMessage((payload) => {
   const tag = data.tag ?? ("dsa-reminder-" + Date.now());
   const url = data.link ?? "/today";
 
-  self.registration.showNotification(title, {
+  return self.registration.showNotification(title, {
     body,
     icon: "/icon.png",
     badge: "/icon.png",

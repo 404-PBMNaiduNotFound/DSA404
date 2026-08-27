@@ -31,6 +31,7 @@ interface UserSettingsRow {
   contestReminderEnabled?: boolean;
   lastWeekdayQuoteSentOn?: string;
   lastWeekendQuoteSentPeriod?: string;
+  lastLateReminderSentOn?: string;
 }
 
 const MOTIVATIONAL_QUOTES = [
@@ -65,7 +66,7 @@ async function notifyUser(
             link: opts.link ?? "/today",
           },
           webpush: {
-            headers: { Urgency: "high" },
+            headers: { Urgency: "high", TTL: "86400" },
             fcmOptions: { link: opts.link ?? "/today" },
           },
         });
@@ -200,6 +201,59 @@ export async function GET(req: Request) {
       eveningSent += 1;
     } catch (e) {
       errors.push(`${uid} evening: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  // ── 1b. Compulsory 10:00 PM Unresolved Problem Follow-up Reminder ────────
+  const lateEveningDue = candidates.filter((row) => {
+    const tz = row.timezone || "Asia/Kolkata";
+    const today = todayIsoInTz(tz);
+    if (row.lastLateReminderSentOn === today) return false;
+    return nowMinutesInTz(tz) >= 22 * 60; // 10:00 PM
+  });
+
+  for (const row of lateEveningDue) {
+    const uid = row.uid;
+    try {
+      const tz = row.timezone || "Asia/Kolkata";
+      const today = todayIsoInTz(tz);
+      const settingsRef = db.doc(`users/${uid}/settings/prefs`);
+
+      const daySnap = await db
+        .collection(`users/${uid}/days`)
+        .where("date", "==", today)
+        .limit(1)
+        .get();
+      if (daySnap.empty) continue;
+      const day = daySnap.docs[0].data();
+
+      const problems = (day.problems ?? []) as { done: boolean }[];
+      const total = problems.length;
+      const done = problems.filter((p) => p.done).length;
+
+      // Condition: ONLY send if total > 0 AND done === 0
+      if (total === 0 || done > 0) {
+        await settingsRef.set({ lastLateReminderSentOn: today }, { merge: true });
+        continue;
+      }
+
+      await notifyUser(
+        db,
+        uid,
+        {
+          pushEnabled: row.pushEnabled,
+          emailEnabled: row.emailEnabled,
+          title: "🚨 Final DSA⁴⁰⁴ Reminder: Streak at Risk!",
+          body: `You still have 0 solved of ${total} scheduled problem${total !== 1 ? "s" : ""} today in ${day.topic || "today's plan"}. Log in and solve your problem before midnight to save your streak!`,
+          link: "/today",
+        },
+        errors
+      );
+
+      await settingsRef.set({ lastLateReminderSentOn: today }, { merge: true });
+      eveningSent += 1;
+    } catch (e) {
+      errors.push(`${uid} late evening: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 

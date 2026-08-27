@@ -36,7 +36,8 @@ export async function registerReminderWorker() {
   if (!pushSupported()) return null;
   try {
     const reg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-    console.info("[push] Stage A: Service Worker registered successfully:", reg.scope);
+    await navigator.serviceWorker.ready;
+    console.info("[push] Stage A: Service Worker registered and active:", reg.scope);
     return reg;
   } catch (err) {
     console.error("[push] Stage A ERROR: Service Worker registration failed:", err);
