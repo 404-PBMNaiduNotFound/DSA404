@@ -27,21 +27,23 @@ const transporter = nodemailer.createTransport({
  * @param subject Email subject line
  * @param text Plain‑text body
  */
-export async function sendEmail(to: string, subject: string, text: string) {
+export async function sendEmail(to: string, subject: string, text: string, html?: string) {
   if (!GMAIL_USER || !GMAIL_APP_PASSWORD) {
-    throw new Error("Gmail credentials not configured");
+    console.warn("Gmail credentials not configured. Skipping email send to:", to);
+    return null;
   }
   try {
     const info = await transporter.sendMail({
-      from: GMAIL_USER,
+      from: `"DSA⁴⁰⁴ Team" <${GMAIL_USER}>`,
       to,
       subject,
       text,
+      ...(html ? { html } : {}),
     });
-    console.info("Email sent", { to, messageId: info.messageId });
+    console.info("Email sent successfully", { to, messageId: info.messageId });
     return info;
   } catch (err) {
-    console.error("Failed to send email", err);
-    throw err;
+    console.error("Failed to send email to " + to, err);
+    return null;
   }
 }

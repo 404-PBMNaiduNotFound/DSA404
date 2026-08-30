@@ -332,7 +332,7 @@ export async function isUsernameAvailable(username: string): Promise<boolean> {
  * Also mirrors the username onto users/{uid}.username so pages that already
  * load the profile doc (Settings, Profile, public profile) get it for free.
  */
-export async function claimUsername(uid: string, username: string): Promise<void> {
+export async function claimUsername(uid: string, username: string, email?: string): Promise<void> {
   const u = normalizeUsername(username);
   if (!USERNAME_REGEX.test(u)) {
     throw new Error("USERNAME_INVALID");
@@ -358,6 +358,32 @@ export async function claimUsername(uid: string, username: string): Promise<void
  * it as a raw Firebase uid — this keeps every link shared before this
  * feature existed working exactly as before.
  */
+
+/**
+ * Resolves a username to the account's email address for username-based login.
+ */
+export async function getEmailByUsername(username: string): Promise<string | null> {
+  const u = normalizeUsername(username);
+  if (!USERNAME_REGEX.test(u)) return null;
+  try {
+    const snap = await getDoc(usernameDoc(u));
+    if (snap.exists()) {
+      const data = snap.data() as { email?: string; uid?: string };
+      if (data.email) return data.email;
+      if (data.uid) {
+        const uSnap = await getDoc(userDoc(data.uid));
+        if (uSnap.exists()) {
+          const uData = uSnap.data() as { email?: string };
+          if (uData.email) return uData.email;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("getEmailByUsername error:", e);
+  }
+  return null;
+}
+
 export async function resolveProfileIdentifier(identifier: string): Promise<string | null> {
   const asUsername = normalizeUsername(identifier);
   if (USERNAME_REGEX.test(asUsername)) {

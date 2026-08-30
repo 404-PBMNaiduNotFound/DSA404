@@ -54,12 +54,14 @@ function YoutubeIcon({ className }: { className?: string }) {
 }
 
 /* ─── real, derived homepage stats (single source of truth) ─── */
-const REAL_SECTIONS_COUNT = CORE_SECTIONS.length; // 28
+const REAL_SECTIONS_COUNT = CORE_SECTIONS.length;
 const REAL_PATTERNS_COUNT = Array.from(
   new Set(CORE_SECTIONS.flatMap((s) => s.subtopics))
-).length; // 63 dynamic key patterns
-const REAL_TOTAL_PROBLEMS = TOTAL_PROBLEMS; // 357
-const REAL_PRACTICE_PROBLEMS_COUNT = ALL_PROBLEMS.length - TOTAL_PROBLEMS; // 567
+).length;
+const REAL_TOTAL_PROBLEMS = TOTAL_PROBLEMS;
+const REAL_PRACTICE_PROBLEMS_COUNT = ALL_PROBLEMS.length - TOTAL_PROBLEMS;
+const REAL_ALL_PROBLEMS_COUNT = ALL_PROBLEMS.length;
+const REAL_WEEKS_COUNT = Math.ceil(seedDays().length / 7);
 const REAL_DAY_1 = seedDays()[0];
 const REAL_DAY_1_DIFFICULTY_COUNTS = REAL_DAY_1.problems.reduce((acc, p) => {
   acc[p.difficulty] = (acc[p.difficulty] ?? 0) + 1;
@@ -488,7 +490,7 @@ function HeroSection() {
 
             <div className="hero-cta mt-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
               <Button asChild size="lg" className="font-mono justify-center text-center">
-                <Link href="/auth?next=/today">
+                <Link href="/auth?mode=signup&next=/today">
                   Start your DSA plan
                 </Link>
               </Button>
@@ -899,7 +901,9 @@ export default function Home() {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
-      if (u) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const isClosedOnboarding = searchParams.get("onboarding") === "closed";
+      if (u && !isClosedOnboarding) {
         router.replace("/today");
       } else {
         setUser(null);
@@ -940,10 +944,10 @@ export default function Home() {
               </Button>
             )}
             <Button asChild variant="ghost" size="sm" className="font-mono text-xs hidden sm:inline-flex">
-              <Link href="/auth">Login</Link>
+              <Link href="/auth?mode=signin">Login</Link>
             </Button>
             <Button asChild size="sm" className="font-mono text-xs">
-              <Link href="/auth">Register</Link>
+              <Link href="/auth?mode=signup">Register</Link>
             </Button>
           </div>
         </div>
@@ -965,7 +969,7 @@ export default function Home() {
               Explore the full workspace with live sample data
             </h2>
             <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-              Test drive all 924 problems, 17 weeks of roadmap, daily checklists, and progress tracking below.
+              Test drive all {REAL_ALL_PROBLEMS_COUNT} problems, {REAL_WEEKS_COUNT} weeks of roadmap, daily checklists, and progress tracking below.
             </p>
           </div>
 
@@ -976,10 +980,10 @@ export default function Home() {
           <p className="text-sm text-muted-foreground mb-4">Ready to track your own progress?</p>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 w-full">
             <Button asChild size="lg" className="font-mono text-xs sm:text-sm h-auto py-3 px-5 text-center whitespace-normal break-words justify-center">
-              <Link href="/auth">Create free account</Link>
+              <Link href="/auth?mode=signup">Create free account</Link>
             </Button>
             <Button asChild size="lg" variant="outline" className="font-mono text-xs sm:text-sm h-auto py-3 px-5 text-center whitespace-normal break-words justify-center">
-              <Link href="/auth">I already have an account</Link>
+              <Link href="/auth?mode=signin">I already have an account</Link>
             </Button>
           </div>
         </div>

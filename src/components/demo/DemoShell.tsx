@@ -970,12 +970,12 @@ export function DemoShell() {
               <>
                 <p className="text-[11px] text-muted-foreground mb-1">Want to save your real progress?</p>
                 <Button asChild size="sm" className="w-full font-mono text-xs">
-                  <Link href="/auth">Register Now</Link>
+                  <Link href="/auth?mode=signup">Register Now</Link>
                 </Button>
               </>
             ) : (
               <Button asChild size="icon" className="size-9 rounded-xl mx-auto" title="Register Now to save progress">
-                <Link href="/auth">
+                <Link href="/auth?mode=signup">
                   <Lock className="size-4" />
                 </Link>
               </Button>

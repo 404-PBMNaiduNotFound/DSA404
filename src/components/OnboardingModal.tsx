@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { todayIso, DEFAULT_DAILY_COUNTS, type DailyCounts } from "@/lib/plan";
+import { CORE_SECTIONS } from "@/lib/master-problems";
+import { ALL_PROBLEMS } from "@/lib/problems";
+import { todayIso, DEFAULT_DAILY_COUNTS, TOTAL_PROBLEMS, type DailyCounts } from "@/lib/plan";
 import { Loader2, BookOpen, Zap, Trophy, CalendarDays, Sliders, X } from "lucide-react";
 
 interface OnboardingModalProps {
@@ -18,6 +20,21 @@ interface OnboardingModalProps {
 
 const STEPS = ["welcome", "pace", "startdate", "ready"] as const;
 type Step = typeof STEPS[number];
+
+/* ── real dynamic stats ── */
+const REAL_ROADMAP_PROBLEMS = TOTAL_PROBLEMS;
+const REAL_SECTIONS_COUNT = CORE_SECTIONS.length;
+const LEVEL_COUNTS = CORE_SECTIONS.reduce(
+  (acc, s) => {
+    s.problems.forEach((p) => {
+      if (p.level === "Level 1") acc.level1++;
+      else if (p.level === "Level 2") acc.level2++;
+      else if (p.level === "Level 3") acc.level3++;
+    });
+    return acc;
+  },
+  { level1: 0, level2: 0, level3: 0 }
+);
 
 export function OnboardingModal({ open, onComplete, onClose }: OnboardingModalProps) {
   const router = useRouter();
@@ -30,7 +47,7 @@ export function OnboardingModal({ open, onComplete, onClose }: OnboardingModalPr
     if (onClose) {
       onClose();
     } else {
-      router.push("/");
+      window.location.href = "/?onboarding=closed";
     }
   };
 
@@ -98,22 +115,25 @@ export function OnboardingModal({ open, onComplete, onClose }: OnboardingModalPr
                 <div className="rounded-xl border border-border bg-emerald-50 dark:bg-emerald-900/20 p-2.5 sm:p-3 text-center">
                   <BookOpen className="mx-auto mb-1 size-4 sm:size-5 text-emerald-600 dark:text-emerald-400" />
                   <p className="text-[11px] sm:text-xs font-semibold text-emerald-700 dark:text-emerald-400">Level 1</p>
-                  <p className="text-[10px] sm:text-[11px] text-muted-foreground">Foundations</p>
+                  <p className="text-[10px] sm:text-[11px] font-bold text-emerald-800 dark:text-emerald-300">{LEVEL_COUNTS.level1} Problems</p>
+                  <p className="text-[10px] text-muted-foreground">Foundations</p>
                 </div>
                 <div className="rounded-xl border border-border bg-blue-50 dark:bg-blue-900/20 p-2.5 sm:p-3 text-center">
                   <Zap className="mx-auto mb-1 size-4 sm:size-5 text-blue-600 dark:text-blue-400" />
                   <p className="text-[11px] sm:text-xs font-semibold text-blue-700 dark:text-blue-400">Level 2</p>
-                  <p className="text-[10px] sm:text-[11px] text-muted-foreground">Intermediate</p>
+                  <p className="text-[10px] sm:text-[11px] font-bold text-blue-800 dark:text-blue-300">{LEVEL_COUNTS.level2} Problems</p>
+                  <p className="text-[10px] text-muted-foreground">Intermediate</p>
                 </div>
                 <div className="rounded-xl border border-border bg-purple-50 dark:bg-purple-900/20 p-2.5 sm:p-3 text-center">
                   <Trophy className="mx-auto mb-1 size-4 sm:size-5 text-purple-600 dark:text-purple-400" />
                   <p className="text-[11px] sm:text-xs font-semibold text-purple-700 dark:text-purple-400">Level 3</p>
-                  <p className="text-[10px] sm:text-[11px] text-muted-foreground">Advanced</p>
+                  <p className="text-[10px] sm:text-[11px] font-bold text-purple-800 dark:text-purple-300">{LEVEL_COUNTS.level3} Problems</p>
+                  <p className="text-[10px] text-muted-foreground">Advanced</p>
                 </div>
               </div>
 
               <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                338 curated problems across 42 topics — organised in 3 levels to take you from fundamentals to advanced DSA.
+                {REAL_ROADMAP_PROBLEMS} curated problems across {REAL_SECTIONS_COUNT} core DSA topics — organised in 3 levels to take you from fundamentals to advanced DSA.
               </p>
 
               <Button className="w-full h-10 sm:h-11 cursor-pointer text-sm sm:text-base font-semibold" onClick={() => setStep("pace")}>

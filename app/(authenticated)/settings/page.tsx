@@ -6,7 +6,9 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   deleteUser,
+  EmailAuthProvider,
   GoogleAuthProvider,
+  linkWithCredential,
   linkWithPopup,
   updatePassword,
   updateProfile,
@@ -148,7 +150,30 @@ export default function SettingsPage() {
         await updateProfile(user, { displayName: name.trim() });
         await updateUserProfile(userId, { displayName: name.trim() });
       }
-      if (password) await updatePassword(user, password);
+      if (password) {
+        try {
+          await updatePassword(user, password);
+        } catch (e: any) {
+          // If account was created via Google Auth, link an Email/Password credential
+          if (user.email) {
+            try {
+              const cred = EmailAuthProvider.credential(user.email, password);
+              await linkWithCredential(user, cred);
+            } catch (linkErr: any) {
+              if (
+                linkErr?.code === "auth/provider-already-linked" ||
+                linkErr?.code === "auth/credential-already-in-use"
+              ) {
+                await updatePassword(user, password);
+              } else {
+                throw e;
+              }
+            }
+          } else {
+            throw e;
+          }
+        }
+      }
       setPassword("");
       setConfirm("");
       toast.success("Account updated");

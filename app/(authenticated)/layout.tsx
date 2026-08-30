@@ -109,7 +109,9 @@ function PlanBoundary({
       <>
         <OnboardingModal
           open={true}
-          onClose={() => router.push('/')}
+          onClose={() => {
+            window.location.href = '/?onboarding=closed';
+          }}
           onComplete={handleOnboardingComplete}
         />
         {/* Faded background while onboarding */}

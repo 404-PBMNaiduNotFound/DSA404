@@ -23,11 +23,13 @@ import { ALL_PROBLEMS } from "@/lib/problems";
 import { seedDays, TOTAL_PROBLEMS, BASE_DAYS } from "@/lib/plan";
 
 /* ─── real, derived homepage stats (single source of truth) ─── */
-const REAL_SECTIONS_COUNT = CORE_SECTIONS.length; // 42
-const REAL_TOTAL_PROBLEMS = TOTAL_PROBLEMS; // 338
-const REAL_TOTAL_DAYS = BASE_DAYS; // 120
-const REAL_ALL_PROBLEMS_COUNT = ALL_PROBLEMS.length; // 924 (338 Core 404 + 586 Practice 404 Sheet)
-const REAL_AVG_PER_DAY = REAL_TOTAL_PROBLEMS / REAL_TOTAL_DAYS; // ~2.8
+const REAL_SECTIONS_COUNT = CORE_SECTIONS.length;
+const REAL_TOTAL_PROBLEMS = TOTAL_PROBLEMS;
+const REAL_TOTAL_DAYS = BASE_DAYS;
+const REAL_ALL_PROBLEMS_COUNT = ALL_PROBLEMS.length;
+const REAL_PRACTICE_PROBLEMS_COUNT = ALL_PROBLEMS.length - TOTAL_PROBLEMS;
+const REAL_WEEKS_COUNT = Math.ceil(seedDays().length / 7);
+const REAL_AVG_PER_DAY = REAL_TOTAL_PROBLEMS / REAL_TOTAL_DAYS;
 const REAL_DAY_1 = seedDays()[0];
 const REAL_DAY_1_DIFFICULTY_COUNTS = REAL_DAY_1.problems.reduce(
   (acc, p) => {
@@ -239,7 +241,7 @@ function HowItWorks() {
     {
       icon: CalendarDays,
       title: "Sign up & get your plan",
-      body: "The moment you sign up, your personal 120-day schedule is generated from the Core 404 DSA roadmap. All 338 problems are distributed across 42 topics in study order, starting from the day you join.",
+      body: `The moment you sign up, your personal ${REAL_TOTAL_DAYS}-day schedule is generated from the Core 404 DSA roadmap. All ${REAL_TOTAL_PROBLEMS} problems are distributed across ${REAL_SECTIONS_COUNT} topics in study order, starting from the day you join.`,
       step: "01",
     },
     {
@@ -550,9 +552,9 @@ function FeatureWalkthrough() {
     {
       icon: CalendarRange,
       color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-      title: "Week View — Your 17-week roadmap at a glance",
+      title: `Week View — Your ${REAL_WEEKS_COUNT}-week roadmap at a glance`,
       bullets: [
-        "See all 120 days grouped into 17 weeks",
+        `See all ${REAL_TOTAL_DAYS} days grouped into ${REAL_WEEKS_COUNT} weeks`,
         "Each week shows a progress bar: X / Y problems done",
         "Jump directly into any day by clicking its card",
         "Skip future days you know you'll miss — schedule adjusts cleanly",
@@ -565,7 +567,7 @@ function FeatureWalkthrough() {
       color: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
       title: "Progress — Stats that tell the truth",
       bullets: [
-        "Overall completion: X / 338 problems done",
+        `Overall completion: X / ${REAL_TOTAL_PROBLEMS} problems done`,
         "Current streak and longest streak",
         "Difficulty split: Easy / Medium / Hard breakdown",
         "Weekly solved-problems trend (bar chart)",
@@ -588,9 +590,9 @@ function FeatureWalkthrough() {
     {
       icon: LayoutGrid,
       color: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
-      title: "Topic View — All 42 topics at once",
+      title: `Topic View — All ${REAL_SECTIONS_COUNT} topics at once`,
       bullets: [
-        "Accordion of all 42 Core 404 topics in study order",
+        `Accordion of all ${REAL_SECTIONS_COUNT} Core 404 topics in study order`,
         "Each section shows X / Y problems done with a mini progress bar",
         "Expand any section to see all its study days and jump in",
         "Skip a whole section or a single topic — schedule adjusts",
@@ -604,7 +606,7 @@ function FeatureWalkthrough() {
       title: "Review — Your personal \"revisit later\" list",
       bullets: [
         "Bookmark any problem in Today's Workspace with one tap",
-        "All bookmarks from all 120 days appear here, sorted by day",
+        `All bookmarks from all ${REAL_TOTAL_DAYS} days appear here, sorted by day`,
         "Shows which day and topic each problem belongs to",
         "Clear the bookmark once you've mastered it",
       ],
@@ -626,10 +628,9 @@ function FeatureWalkthrough() {
     {
       icon: Code2,
       color: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
-      title: "Problems — 838+ problems, 2 curated sets",
+      title: `Problems — ${REAL_ALL_PROBLEMS_COUNT}+ problems, 2 curated sets`,
       bullets: [
-        "338 Core 404 problems + 500 extra practice problems in one searchable table",
-        "LeetCode: 456 (A2Z) + 175 extra · GeeksforGeeks: 18 (A2Z) + 126 extra",
+        `${REAL_TOTAL_PROBLEMS} Core 404 problems + ${REAL_PRACTICE_PROBLEMS_COUNT} extra practice problems in one searchable table`,
         "Filter by platform (LeetCode, GFG, HackerRank, CodeStudio), difficulty, or sheet",
         "Sheets: NeetCode 150 · Blind 75 · Love Babbar 450 · Top Interview 150 · GFG Must-Do",
         "Verified direct links — no search-fallback guessing; problems with unconfirmed links are flagged",
@@ -703,7 +704,7 @@ function AISection() {
               {[
                 "No copy-pasting — the prompt is built from today's topic automatically",
                 "Opens ChatGPT in a new tab with the message pre-loaded",
-                "Works for every one of the 120 days and all 42 topics",
+                `Works for every one of the ${REAL_TOTAL_DAYS} days and all ${REAL_SECTIONS_COUNT} topics`,
                 "Use your own ChatGPT account — free or Plus, your choice",
               ].map((b) => (
                 <li key={b} className="flex gap-2 text-sm text-muted-foreground">

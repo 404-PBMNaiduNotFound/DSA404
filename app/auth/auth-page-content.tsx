@@ -28,6 +28,7 @@ import {
   claimUsername,
   getEmailByUsername,
   isUsernameAvailable,
+  loadOwnerProfile,
   normalizeUsername,
   saveUserProfile,
   USERNAME_REGEX,
@@ -62,7 +63,22 @@ export function AuthPageContent() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/today";
 
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const initialModeParam = searchParams.get("mode") || searchParams.get("tab") || searchParams.get("type");
+
+  const [mode, setMode] = useState<"signin" | "signup">(() => {
+    if (initialModeParam === "signup" || initialModeParam === "register") return "signup";
+    return "signin";
+  });
+
+  useEffect(() => {
+    const m = searchParams.get("mode") || searchParams.get("tab") || searchParams.get("type");
+    if (m === "signup" || m === "register") {
+      setMode("signup");
+    } else if (m === "signin" || m === "login") {
+      setMode("signin");
+    }
+  }, [searchParams]);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -73,9 +89,7 @@ export function AuthPageContent() {
   const [busy, setBusy] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
-  // Debounced live availability check as the user types their handle during sign-up
   useEffect(() => {
-    if (mode !== "signup") return;
     const raw = username.trim();
     if (!raw) {
       setUsernameStatus("idle");
@@ -210,6 +224,13 @@ export function AuthPageContent() {
         await updateProfile(cred.user, { displayName: trimmedName });
       } catch {}
 
+      // Automatically send 2 welcome & platform feature guide emails upon registration
+      fetch("/api/send-email/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmedEmail, name: trimmedName, username: u }),
+      }).catch((err) => console.warn("Onboarding emails trigger error:", err));
+
       await proceedAfterAuth(cred.user, {
         title: "Account created successfully! 🎉",
         description: `Welcome @${u}! Let's set up your plan.`,
@@ -227,13 +248,79 @@ export function AuthPageContent() {
       return;
     }
 
+    const typedHandle = username.trim();
+    if (typedHandle) {
+      const u = normalizeUsername(typedHandle);
+      if (!USERNAME_REGEX.test(u)) {
+        toast.error("Username must be 3-20 characters: lowercase letters, numbers, - or _ only.");
+        return;
+      }
+      if (usernameStatus === "taken") {
+        toast.error("That username is already taken. Please choose another.");
+        return;
+      }
+    }
+
     setBusy(true);
     try {
       const provider = new GoogleAuthProvider();
       const cred = await signInWithPopup(auth, provider);
+      const userEmail = cred.user.email ?? "";
+      const userDisplayName = cred.user.displayName ?? cred.user.email?.split("@")[0] ?? "Learner";
+
+      // Check if user profile already exists
+      const existingProfile = await loadOwnerProfile(cred.user.uid);
+      const isNewUser = !existingProfile || !existingProfile.username;
+
+      let finalUsername = existingProfile?.username;
+
+      if (isNewUser) {
+        // Determine handle: use typed username if valid, otherwise derive from email/displayName
+        let candidateHandle = typedHandle ? normalizeUsername(typedHandle) : "";
+        if (!candidateHandle || !USERNAME_REGEX.test(candidateHandle)) {
+          const emailPrefix = normalizeUsername(userEmail.split("@")[0] || "user");
+          candidateHandle = USERNAME_REGEX.test(emailPrefix) ? emailPrefix : `user_${cred.user.uid.slice(0, 6).toLowerCase()}`;
+        }
+
+        // Ensure candidate handle is available
+        let available = await isUsernameAvailable(candidateHandle);
+        if (!available) {
+          candidateHandle = `user_${cred.user.uid.slice(0, 6).toLowerCase()}`;
+          let retryAvail = await isUsernameAvailable(candidateHandle);
+          if (!retryAvail) {
+            candidateHandle = `u_${Date.now().toString(36)}`;
+          }
+        }
+
+        try {
+          await claimUsername(cred.user.uid, candidateHandle, userEmail);
+          finalUsername = candidateHandle;
+        } catch (err) {
+          console.warn("Claiming username for Google user failed:", err);
+        }
+
+        await saveUserProfile(cred.user.uid, {
+          displayName: userDisplayName,
+          photoURL: cred.user.photoURL ?? undefined,
+        });
+
+        // Trigger the 2 onboarding emails for Google registered user automatically!
+        if (userEmail) {
+          fetch("/api/send-email/onboarding", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: userEmail,
+              name: userDisplayName,
+              username: finalUsername || candidateHandle,
+            }),
+          }).catch((err) => console.warn("Google onboarding emails trigger error:", err));
+        }
+      }
+
       await proceedAfterAuth(cred.user, {
-        title: "Welcome back! Thanks for logging in to our website.",
-        description: "Ready to solve today's DSA problems?",
+        title: isNewUser ? "Account created with Google! 🎉" : "Welcome back! Thanks for logging in.",
+        description: isNewUser ? `Welcome @${finalUsername || "learner"}! Let's set up your plan.` : "Ready to solve today's DSA problems?",
       });
     } catch (e) {
       toast.error(authErrorMessage(e));
@@ -396,6 +483,12 @@ export function AuthPageContent() {
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={busy}
                   />
+                  {mode === "signup" && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium leading-tight mt-1 flex items-start gap-1">
+                      <span className="shrink-0">💡</span>
+                      <span>Please enter a valid email address for receiving your daily roadmap notifications, progress alerts, and password reset links.</span>
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -410,7 +503,7 @@ export function AuthPageContent() {
                 </div>
 
                 <Button
-                  className="w-full mt-2"
+                  className="w-full mt-2 cursor-pointer"
                   disabled={busy || (mode === "signup" && usernameStatus === "taken")}
                   onClick={mode === "signin" ? handleSignIn : handleSignUp}
                 >
@@ -451,15 +544,65 @@ export function AuthPageContent() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="google" className="pt-2">
+              <TabsContent value="google" className="pt-2 space-y-3.5">
+                <div className="space-y-1.5 text-left">
+                  <Label htmlFor="google-signup-username">Username (Optional)</Label>
+                  <div className="relative">
+                    <Input
+                      id="google-signup-username"
+                      type="text"
+                      placeholder="e.g. alex_turner"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      disabled={busy}
+                      className={
+                        usernameStatus === "taken" || usernameStatus === "invalid"
+                          ? "border-destructive focus-visible:ring-destructive pr-9"
+                          : usernameStatus === "available"
+                            ? "border-emerald-500 focus-visible:ring-emerald-500 pr-9"
+                            : "pr-9"
+                      }
+                    />
+                    {usernameIcon && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                        {usernameIcon}
+                      </span>
+                    )}
+                  </div>
+                  <p
+                    className={`text-[11px] ${
+                      usernameStatus === "taken" || usernameStatus === "invalid"
+                        ? "text-destructive"
+                        : usernameStatus === "available"
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-muted-foreground"
+                    }`}
+                  >
+                    {usernameStatus === "taken"
+                      ? "That username is already taken — choose another."
+                      : usernameStatus === "invalid"
+                        ? "3-20 characters: lowercase letters, numbers, - or _ only."
+                        : usernameStatus === "available"
+                          ? "Username is available!"
+                          : "Unique handle for your public profile. Leave empty to auto-generate from Google profile."}
+                  </p>
+                </div>
+
                 <Button
                   variant="outline"
-                  className="w-full cursor-pointer"
-                  disabled={busy}
+                  className="w-full cursor-pointer font-mono text-xs gap-2 py-2.5"
+                  disabled={busy || usernameStatus === "taken" || usernameStatus === "invalid"}
                   onClick={handleGoogleSignIn}
                 >
-                  {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Sign in with Google
+                  {busy ? <Loader2 className="size-4 animate-spin" /> : (
+                    <svg className="size-4 shrink-0" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                  )}
+                  <span>Sign in with Google</span>
                 </Button>
               </TabsContent>
             </Tabs>
