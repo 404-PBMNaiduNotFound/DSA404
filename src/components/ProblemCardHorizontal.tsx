@@ -59,6 +59,7 @@ function youtubeSearchUrl(problemName: string) {
 }
 
 import { getChatGPTAiPromptUrl } from "@/lib/aiTutorPrompt";
+import { HoverHint } from "./HoverHint";
 
 function chatGptProblemUrl(problemName: string) {
   return getChatGPTAiPromptUrl(problemName);
@@ -210,10 +211,11 @@ export function ProblemCardHorizontal({
               <DropdownMenuTrigger asChild>
                 <button
                   className="inline-flex items-center gap-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary px-2.5 py-1 font-medium transition-colors text-xs"
-                  title="View all problem links & resources"
                 >
                   <Link2 className="size-3.5" />
-                  <span>Links 🔗</span>
+                  <ThemedTooltip hint={`view all the links & resources for ${problem.name}`}>
+                    <span>Links 🔗</span>
+                  </ThemedTooltip>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56 rounded-xl border border-white/10 bg-card/95 backdrop-blur-xl">
@@ -224,7 +226,9 @@ export function ProblemCardHorizontal({
                   <DropdownMenuItem asChild>
                     <a href={problem.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-semibold text-primary">
                       <ExternalLink className="size-3.5 text-primary" />
-                      <span>{problem.platform} Official Page</span>
+                      <ThemedTooltip hint={`view the ${problem.platform} official page for ${problem.name}`}>
+                        <span>{problem.platform} Official Page</span>
+                      </ThemedTooltip>
                     </a>
                   </DropdownMenuItem>
                 )}
@@ -232,21 +236,18 @@ export function ProblemCardHorizontal({
                 <DropdownMenuItem asChild>
                   <a href={youtubeSearchUrl(problem.name)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-foreground">
                     <Video className="size-3.5 text-rose-500" />
-                    <span>YouTube Solution Video</span>
+                    <ThemedTooltip hint={`view youtube solution video for ${problem.name}`}>
+                      <span>YouTube Solution Video</span>
+                    </ThemedTooltip>
                   </a>
                 </DropdownMenuItem>
 
                 <DropdownMenuItem asChild>
                   <a href={googleSearchUrl(problem.name)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-foreground">
                     <Search className="size-3.5 text-sky-400" />
-                    <span>Google Search Solution</span>
-                  </a>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem asChild>
-                  <a href={chatGptProblemUrl(problem.name)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-foreground">
-                    <Sparkles className="size-3.5 text-emerald-400" />
-                    <span>ChatGPT AI Explanation</span>
+                    <ThemedTooltip hint={`view google search results for ${problem.name} solution intuition explained`}>
+                      <span>Google Search Solution</span>
+                    </ThemedTooltip>
                   </a>
                 </DropdownMenuItem>
 
@@ -255,24 +256,14 @@ export function ProblemCardHorizontal({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onSelect={() => setCodeModalOpen(true)} className="flex items-center gap-2 text-xs text-emerald-400 font-semibold">
                       <Code2 className="size-3.5 text-emerald-400" />
-                      <span>View Submitted Solution</span>
+                      <ThemedTooltip hint={`view or edit your code solution and keypoints for ${problem.name}`}>
+                        <span>View/Edit Submitted Code</span>
+                      </ThemedTooltip>
                     </DropdownMenuItem>
                   </>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-
-            {/* Direct AI Explanation quick button */}
-            <ThemedTooltip hint="Ask AI for solution walkthrough and intuition">
-              <a
-                href={chatGptProblemUrl(problem.name)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/10 hover:text-foreground transition-colors"
-              >
-                <Sparkles className="size-3.5 text-emerald-400" />
-              </a>
-            </ThemedTooltip>
           </div>
 
           <div className="flex items-center gap-1">
@@ -291,7 +282,7 @@ export function ProblemCardHorizontal({
               </button>
             </ThemedTooltip>
 
-            <ThemedTooltip hint="Solve with Interactive ChatGPT DSA AI Tutor">
+            <ThemedTooltip hint="Solve with Interactive ChatGPT DSA AI Tutor (give you problem statement and hints to complete)">
               <a
                 href={getChatGPTAiPromptUrl(problem.name)}
                 target="_blank"
@@ -312,8 +303,8 @@ export function ProblemCardHorizontal({
         onOpenChange={setCodeModalOpen}
         problemName={problem.name}
         existingSubmission={submission}
-        onSave={async (code, link) => {
-          await submitCode(problem.name, code, link);
+        onSave={async (code, link, keyPoints) => {
+          await submitCode(problem.name, code, link, keyPoints);
           // Mark completed automatically upon submitting code
           if (!problem.done && !readOnly) {
             onToggle();

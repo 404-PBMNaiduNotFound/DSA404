@@ -32,6 +32,7 @@ function chatGptProblemUrl(problemName: string) {
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { HoverHint } from "@/components/HoverHint";
@@ -51,6 +52,18 @@ const diffClass: Record<string, string> = {
   Expert: "text-red-600 dark:text-red-400",
   "Multiple Choice": "text-blue-600 dark:text-blue-400",
 };
+function ThemedTooltip({ hint, children }: { hint: string; children: React.ReactNode }) {
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>{children}</TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs rounded-xl border border-white/15 bg-popover/95 backdrop-blur-md px-3 py-1.5 text-xs font-medium text-popover-foreground shadow-2xl">
+          {hint}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 export function ProblemRow({
   problem,
@@ -79,8 +92,8 @@ export function ProblemRow({
   const { submissions, submitCode, removeCode } = useProblemCompletions();
   const submission = submissions[problem.name];
 
-  const handleSaveCode = async (code: string, link: string) => {
-    await submitCode(problem.name, code, link);
+  const handleSaveCode = async (code: string, link: string, keyPoints: string) => {
+    await submitCode(problem.name, code, link, keyPoints);
     setJustDone(true);
     window.setTimeout(() => setJustDone(false), 400);
     onToggle?.(true);
@@ -100,7 +113,7 @@ export function ProblemRow({
           problem.done && "border-success/30 bg-success/5",
         )}
       >
-        <HoverHint hint={readOnly ? "View only — only today's problems can be marked done" : "Submit code solution to mark done"}>
+        <ThemedTooltip hint="View only — only today's problems can be marked done Submit code solution to mark done">
           <Checkbox
             id={id}
             checked={problem.done}
@@ -112,7 +125,7 @@ export function ProblemRow({
             aria-label={`Mark ${problem.name} as done`}
             className={cn("size-5 transition-transform", justDone && "animate-pop-check")}
           />
-        </HoverHint>
+        </ThemedTooltip>
         <label
           htmlFor={id}
           className={cn(
@@ -189,21 +202,6 @@ export function ProblemRow({
               </HoverHint>
             );
           })()}
-          {problem.takeUForwardLink && (
-            <HoverHint hint="Opens the takeUforward article explaining this problem">
-              <Button asChild variant="ghost" size="sm" className="h-8 px-2">
-                <a
-                  href={problem.takeUForwardLink}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={`Read the takeUforward article for ${problem.name}`}
-                >
-                  <BookOpen className="size-3.5" aria-hidden="true" />
-                  <span className="ml-1 text-xs">TUF</span>
-                </a>
-              </Button>
-            </HoverHint>
-          )}
           <HoverHint hint="Search Google: problem name + DSA LeetCode GeeksforGeeks TUF YouTube tutorials">
             <Button asChild variant="ghost" size="sm" className="h-8 px-2">
               <a
@@ -291,7 +289,7 @@ export function ProblemRow({
             </HoverHint>
           )}
         </div>
-      </li>
+      </li >
 
       <CodeModal
         open={modalOpen}

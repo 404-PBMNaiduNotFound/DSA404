@@ -1,28 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
-import { updateProfile } from "firebase/auth";
-import { auth } from "@/integrations/firebase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlan } from "@/hooks/usePlan";
 import { useProblemCompletions } from "@/hooks/useProblemCompletions";
 import {
   loadOwnerProfile,
   saveUserProfile,
-  saveAvatarBase64,
-  saveBannerBase64,
   type CodingProfiles,
   type CustomLink,
   type CompletedProblemSnapshot,
 } from "@/lib/db";
 import { ALL_PROBLEMS } from "@/lib/problems";
 import { SubmissionHeatmap } from "@/components/SubmissionHeatmap";
-import { BadgesGrid } from "@/components/BadgesGrid";
 import { computeBadges, currentStreak } from "@/lib/gamification";
-import { dayProgress, todayIso, formatDate } from "@/lib/plan";
 import { DayDetail } from "@/components/DayDetail";
-import { LeetCodeCalendarWidget } from "@/components/LeetCodeCalendarWidget";
 import { CodeModal } from "@/components/CodeModal";
 import {
   getInactivityDays,
@@ -30,11 +22,6 @@ import {
   recordActivity,
   type MotivationalQuote,
 } from "@/lib/userActivity";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
 import {
   Camera,
   Check,
@@ -122,50 +109,7 @@ const PLATFORMS: {
     },
   ];
 
-async function compressImageToDataUrl(file: File, maxPx = 128, quality = 0.5): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const size = Math.min(img.width, img.height);
-        const sx = (img.width - size) / 2;
-        const sy = (img.height - size) / 2;
-        const canvas = document.createElement("canvas");
-        canvas.width = maxPx;
-        canvas.height = maxPx;
-        const ctx = canvas.getContext("2d")!;
-        ctx.drawImage(img, sx, sy, size, size, 0, 0, maxPx, maxPx);
-        resolve(canvas.toDataURL("image/jpeg", quality));
-      };
-      img.onerror = () => reject(new Error("Failed to load image"));
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = () => reject(new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
-}
 
-async function compressBannerToDataUrl(file: File, width = 900, height = 300, quality = 0.6): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d")!;
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL("image/jpeg", quality));
-      };
-      img.onerror = () => reject(new Error("Failed to load banner image"));
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = () => reject(new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
-}
 
 import {
   Tooltip,
@@ -173,6 +117,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { todayIso } from "@/lib/plan";
 
 function ThemedTooltip({ hint, children }: { hint: string; children: React.ReactNode }) {
   return (
@@ -192,9 +137,6 @@ export function MergedTodayProfile() {
   const { days, loading } = usePlan();
   const { completed: pbCompleted, submissions } = useProblemCompletions();
 
-  // Active Tab state: "today" | "profile" | "calendar"
-  const [activeTab, setActiveTab] = useState<"today" | "profile" | "calendar">("today");
-
   // Selected date from calendar click
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
 
@@ -204,81 +146,15 @@ export function MergedTodayProfile() {
   // Profile Drawer Edit toggle
   const [showProfileCard, setShowProfileCard] = useState(false);
 
-  // Sync tab from URL params reactively (handles sidebar navigation)
-  const searchParams = useSearchParams();
-  useEffect(() => {
-    const tab = searchParams.get("tab");
-    if (tab === "profile") {
-      setActiveTab("profile");
-    } else if (tab === "calendar" || tab === "solved") {
-      setActiveTab("calendar");
-    } else if (tab === "today") {
-      setActiveTab("today");
-    }
-  }, [searchParams]);
 
   // Motivational Quote State
   const [currentQuote, setCurrentQuote] = useState<MotivationalQuote>(getRandomQuote());
 
-  // Profile local state
-  const [loadingProfile, setLoadingProfile] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [uploadingBanner, setUploadingBanner] = useState(false);
-
   const [displayName, setDisplayName] = useState("");
-  const [bio, setBio] = useState("");
-  const [aboutMe, setAboutMe] = useState("");
-  const [username, setUsername] = useState("");
-  const [photoURL, setPhotoURL] = useState("");
-  const [bannerURL, setBannerURL] = useState("");
-  const [codingProfiles, setCodingProfiles] = useState<CodingProfiles>({});
-  const [editingProfiles, setEditingProfiles] = useState(false);
-  const [draftProfiles, setDraftProfiles] = useState<CodingProfiles>({});
-  const [draftCustomLinks, setDraftCustomLinks] = useState<CustomLink[]>([]);
-  const [copied, setCopied] = useState(false);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   // Record visit activity on mount
   useEffect(() => {
     if (user?.uid) recordActivity(user.uid);
-  }, [user]);
-
-  // Load user profile from DB
-  useEffect(() => {
-    if (!user || !user.uid) {
-      setLoadingProfile(false);
-      setPhotoURL("");
-      setBannerURL("");
-      return;
-    }
-    const localAvatar = localStorage.getItem(`local_avatar_url_${user.uid}`);
-    const localBanner = localStorage.getItem(`local_banner_url_${user.uid}`);
-    if (localAvatar) setPhotoURL(localAvatar);
-    if (localBanner) setBannerURL(localBanner);
-
-    setLoadingProfile(true);
-    loadOwnerProfile(user.uid)
-      .then((p) => {
-        setDisplayName(p.displayName ?? user.displayName ?? "");
-        setBio(p.bio ?? "");
-        setAboutMe(p.aboutMe ?? "");
-        setUsername(p.username ?? "");
-        // Auto-fill from the Google account photo the first time there's no
-        // avatar saved yet — never overrides a photo the user chose.
-        if (p.photoURL) {
-          setPhotoURL(p.photoURL);
-        } else if (!localAvatar && user.photoURL) {
-          setPhotoURL(user.photoURL);
-          saveUserProfile(user.uid, { photoURL: user.photoURL }).catch(() => {});
-        }
-        if (p.bannerURL) setBannerURL(p.bannerURL);
-        setCodingProfiles(p.codingProfiles ?? {});
-        setDraftCustomLinks(p.codingProfiles?.customLinks ?? []);
-      })
-      .finally(() => setLoadingProfile(false));
   }, [user]);
 
   // Today's Day selection logic
@@ -350,7 +226,7 @@ export function MergedTodayProfile() {
             platform: p.platform || "DSA",
             difficulty: p.difficulty || "Medium",
             link: p.link || "",
-            ...(sub ? { code: sub.code, submissionLink: sub.link } : {}),
+            ...(sub ? { code: sub.code, submissionLink: sub.link, keyPoints: sub.keyPoints } : {}),
           });
         }
       }
@@ -390,13 +266,16 @@ export function MergedTodayProfile() {
     for (const day of days) {
       const doneProbs = day.problems.filter((p) => p.done);
       for (const p of doneProbs) {
-        // Group by the date the problem was actually marked done, not the
-        // day it was originally assigned to — so a backlog problem solved
-        // today lands on today's heatmap square. Falls back to the day's
-        // own date for rows completed before this field existed.
         const dateStr = p.completedAt || day.date;
+        const sub = submissions[p.name];
+        const item = {
+          ...p,
+          submissionLink: sub?.link || (p as any).submissionLink || undefined,
+          code: sub?.code || (p as any).code || undefined,
+          keyPoints: sub?.keyPoints || (p as any).keyPoints || undefined,
+        };
         const existing = dateMap.get(dateStr) ?? [];
-        dateMap.set(dateStr, [...existing, p]);
+        dateMap.set(dateStr, [...existing, item]);
       }
     }
 
@@ -405,7 +284,17 @@ export function MergedTodayProfile() {
         const dateStr = sub.submittedAt.slice(0, 10);
         const existing = dateMap.get(dateStr) ?? [];
         if (!existing.some((p) => p.name === probName)) {
-          dateMap.set(dateStr, [...existing, { name: probName, done: true, platform: "Problems Tab" }]);
+          dateMap.set(dateStr, [
+            ...existing,
+            {
+              name: probName,
+              done: true,
+              platform: "Problems Tab",
+              submissionLink: sub.link || undefined,
+              code: sub.code || undefined,
+              keyPoints: sub.keyPoints || undefined,
+            },
+          ]);
         }
       }
     }
@@ -427,144 +316,8 @@ export function MergedTodayProfile() {
     return { heatmapData: hData, detailMap: dMap };
   }, [days, submissions]);
 
-  // Avatar upload
-  const handleAvatarChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      setUploadingAvatar(true);
-      try {
-        const dataUrl = await compressImageToDataUrl(file);
-        setPhotoURL(dataUrl);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("local_avatar_url", dataUrl);
-        }
-        if (user) {
-          await saveAvatarBase64(user.uid, dataUrl).catch(() => { });
-        }
-        toast.success("Profile picture updated!");
-      } catch (err) {
-        toast.error("Upload failed", { description: (err as Error).message });
-      } finally {
-        setUploadingAvatar(false);
-        e.target.value = "";
-      }
-    },
-    [user]
-  );
-
-  // Banner upload
-  const handleBannerChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      setUploadingBanner(true);
-      try {
-        const dataUrl = await compressBannerToDataUrl(file);
-        setBannerURL(dataUrl);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("local_banner_url", dataUrl);
-        }
-        if (user) {
-          await saveBannerBase64(user.uid, dataUrl).catch(() => { });
-        }
-        toast.success("Profile banner updated!");
-      } catch (err) {
-        toast.error("Banner upload failed", { description: (err as Error).message });
-      } finally {
-        setUploadingBanner(false);
-        e.target.value = "";
-      }
-    },
-    [user]
-  );
-
-  // Save basic profile info
-  const saveBasicInfo = useCallback(async () => {
-    if (!user) return;
-    setSaving(true);
-    try {
-      const publicStats = {
-        totalSolved: stats.total,
-        byPlatform: stats.byPlatform,
-        lastUpdated: new Date().toISOString(),
-      };
-
-      await updateProfile(auth.currentUser!, { displayName });
-      await saveUserProfile(user.uid, {
-        displayName,
-        bio,
-        aboutMe,
-        publicStats,
-        completedProblems,
-      });
-      toast.success("Profile saved!");
-    } catch (err) {
-      toast.error("Save failed", { description: (err as Error).message });
-    } finally {
-      setSaving(false);
-    }
-  }, [user, displayName, bio, aboutMe, stats, completedProblems]);
-
-  // Save coding profiles handles
-  const saveCodingProfiles = useCallback(async () => {
-    if (!user) return;
-    setSaving(true);
-    try {
-      const merged: CodingProfiles = { ...draftProfiles, customLinks: draftCustomLinks };
-      await saveUserProfile(user.uid, { codingProfiles: merged });
-      setCodingProfiles(merged);
-      setEditingProfiles(false);
-      toast.success("Coding profiles saved!");
-    } catch (err) {
-      toast.error("Save failed", { description: (err as Error).message });
-    } finally {
-      setSaving(false);
-    }
-  }, [user, draftProfiles, draftCustomLinks]);
-
-  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/profile/${username || user?.uid}` : "";
-  const copyShareLink = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-      toast.success("Link copied to clipboard!");
-    } catch {
-      toast.error("Could not copy link");
-    }
-  }, [shareUrl]);
-
-  const initials = userNameDisplay[0]?.toUpperCase() ?? "D";
-
-  if (loading || loadingProfile) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-20 w-full rounded-2xl" />
-        <Skeleton className="h-12 w-full rounded-xl" />
-        <Skeleton className="h-64 w-full rounded-2xl" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Hidden File Inputs for Avatar & Cover Banner Uploads */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleAvatarChange}
-        className="hidden"
-      />
-      <input
-        ref={bannerInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleBannerChange}
-        className="hidden"
-      />
-
       {/* ── Top Row: Greeting + Topic Header (left) | Heatmap (right) ── */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
         {/* Left (2/3): Highlighted Greeting Card + Today's Topic Description Header Card */}
@@ -575,8 +328,8 @@ export function MergedTodayProfile() {
             inactivityInfo.isLongAbsence
               ? "border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-rose-500/10"
               : streakCount >= 7
-              ? "border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-primary/10"
-              : "border-primary/30 bg-gradient-to-r from-primary/15 via-purple-500/10 to-emerald-500/10"
+                ? "border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-primary/10"
+                : "border-primary/30 bg-gradient-to-r from-primary/15 via-purple-500/10 to-emerald-500/10"
           )}>
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div className="flex items-center gap-3.5">
@@ -686,83 +439,6 @@ export function MergedTodayProfile() {
           lateMode={isPast && !isExactlyToday}
           hideHeader
         />
-      )}
-
-
-      {/* ── TAB 3: SOLVED DAYS GREEN HEATMAP CALENDAR ── */}
-      {activeTab === "calendar" && (
-        <div className="space-y-6 animate-fade-in-up">
-          <section className="rounded-3xl border border-white/10 bg-card/60 backdrop-blur-xl p-6 shadow-xl space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
-                  <Flame className="size-5 text-emerald-400" />
-                  <span>Solved Days Activity Heatmap</span>
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  Days with solved problems are highlighted in green. Click any square to view solved problems for that day.
-                </p>
-              </div>
-            </div>
-
-            {/* Submission Heatmap Grid */}
-            <SubmissionHeatmap data={heatmapData} detailMap={detailMap} />
-          </section>
-
-          {/* All Completed Problems Archive */}
-          <section className="rounded-3xl border border-white/10 bg-card/60 backdrop-blur-xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="size-5 text-emerald-400" />
-                <h3 className="text-lg font-bold text-foreground">All Solved Problems Archive</h3>
-              </div>
-              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
-                {completedProblems.length} Problems Solved
-              </span>
-            </div>
-
-            {completedProblems.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic p-4 text-center border border-dashed border-white/10 rounded-2xl">
-                No completed problems yet. Submit code solutions on your daily workspace to build your solved archive!
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {completedProblems.map((p, idx) => (
-                  <div
-                    key={`${p.name}-${idx}`}
-                    className="flex flex-col justify-between rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 space-y-3 transition-all hover:-translate-y-0.5 hover:shadow-lg"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400 uppercase">
-                        {p.platform}
-                      </span>
-                      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                        {p.difficulty}
-                      </span>
-                    </div>
-
-                    <h4 className="text-xs font-bold text-foreground line-clamp-2">{p.name}</h4>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs">
-                      {p.code ? (
-                        <button
-                          onClick={() => setSelectedProblemForModal(p.name)}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 px-2.5 py-1 text-[11px] font-bold transition-colors"
-                          title="Click to view stored code solution"
-                        >
-                          <Code2 className="size-3.5 text-emerald-400" />
-                          <span>View Code</span>
-                        </button>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground">Marked Done</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
       )}
 
       {/* Code Modal for viewing stored solutions from Solved tab */}

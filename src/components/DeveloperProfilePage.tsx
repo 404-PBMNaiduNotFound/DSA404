@@ -279,7 +279,7 @@ export function DeveloperProfilePage() {
         if (p.done && !seen.has(p.name)) {
           seen.add(p.name);
           const sub = submissions[p.name];
-          list.push({ name: p.name, platform: p.platform || "DSA", difficulty: p.difficulty || "Medium", link: p.link || "", ...(sub ? { code: sub.code, submissionLink: sub.link } : {}) });
+          list.push({ name: p.name, platform: p.platform || "DSA", difficulty: p.difficulty || "Medium", link: p.link || "", ...(sub ? { code: sub.code, submissionLink: sub.link, keyPoints: sub.keyPoints } : {}) });
         }
       }
     }
@@ -287,7 +287,7 @@ export function DeveloperProfilePage() {
       if (pbCompleted.has(fp.name) && !seen.has(fp.name)) {
         seen.add(fp.name);
         const sub = submissions[fp.name];
-        list.push({ name: fp.name, platform: fp.platform || "DSA", difficulty: fp.difficulty || "Medium", link: fp.link || "", ...(sub ? { code: sub.code, submissionLink: sub.link } : {}) });
+        list.push({ name: fp.name, platform: fp.platform || "DSA", difficulty: fp.difficulty || "Medium", link: fp.link || "", ...(sub ? { code: sub.code, submissionLink: sub.link, keyPoints: sub.keyPoints } : {}) });
       }
     }
     return list;
@@ -304,21 +304,35 @@ export function DeveloperProfilePage() {
     for (const day of days) {
       const doneProbs = day.problems.filter((p) => p.done);
       for (const p of doneProbs) {
-        // Group by the date the problem was actually marked done, not the
-        // day it was originally assigned to — so a backlog problem solved
-        // today lands on today's heatmap square. Falls back to the day's
-        // own date for rows completed before this field existed.
         const dateStr = p.completedAt || day.date;
+        const sub = submissions[p.name];
+        const item = {
+          ...p,
+          submissionLink: sub?.link || (p as any).submissionLink || undefined,
+          code: sub?.code || (p as any).code || undefined,
+          keyPoints: sub?.keyPoints || (p as any).keyPoints || undefined,
+        };
         const existing = dateMap.get(dateStr) ?? [];
-        dateMap.set(dateStr, [...existing, p]);
+        dateMap.set(dateStr, [...existing, item]);
       }
     }
     for (const [probName, sub] of Object.entries(submissions)) {
       if (sub.submittedAt) {
         const dateStr = sub.submittedAt.slice(0, 10);
         const existing = dateMap.get(dateStr) ?? [];
-        if (!existing.some((p) => p.name === probName))
-          dateMap.set(dateStr, [...existing, { name: probName, done: true, platform: "Problems Tab" }]);
+        if (!existing.some((p) => p.name === probName)) {
+          dateMap.set(dateStr, [
+            ...existing,
+            {
+              name: probName,
+              done: true,
+              platform: "Problems Tab",
+              submissionLink: sub.link || undefined,
+              code: sub.code || undefined,
+              keyPoints: sub.keyPoints || undefined,
+            },
+          ]);
+        }
       }
     }
     const hData: { date: string; solved: number }[] = [];

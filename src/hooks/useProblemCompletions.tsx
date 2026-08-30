@@ -88,13 +88,14 @@ export function useProblemCompletions() {
 
   /** Submit code for a problem, marking it completed and persisting locally and in DB. */
   const submitCode = useCallback(
-    async (name: string, code: string, link: string = "") => {
+    async (name: string, code: string, link: string = "", keyPoints: string = "") => {
       if (!user?.uid) return;
       const currentUid = user.uid;
 
       const sub: CodeSubmission = {
         code,
         link,
+        ...(keyPoints ? { keyPoints } : {}),
         submittedAt: new Date().toISOString(),
       };
 

@@ -8,7 +8,7 @@ import { PlanProvider } from '@/hooks/usePlan'
 import { SettingsProvider, useSettings } from '@/hooks/useSettings'
 import { ReminderRunner } from '@/components/ReminderRunner'
 import { AppShell } from '@/components/AppShell'
-import { hasExistingPlan, seedPlan, claimUsername } from '@/lib/db'
+import { hasExistingPlan, seedPlan } from '@/lib/db'
 import { saveSettings } from '@/lib/settings'
 import { QuoteLoader } from '@/components/QuoteLoader'
 import { OnboardingModal } from '@/components/OnboardingModal'
@@ -87,20 +87,16 @@ function PlanBoundary({
     })
   }, [userId])
 
-  const handleOnboardingComplete = async (startDate: string, counts: DailyCounts, username: string) => {
-    // Claim their unique username first — checked for duplicates live in the
-    // modal, but claimUsername() re-checks atomically here before it's saved.
-    await claimUsername(userId, username)
+  const handleOnboardingComplete = async (startDate: string, counts: DailyCounts) => {
     // Save their chosen settings
     await updateSettings({ counts })
     await saveSettings(userId, { counts })
     // Seed the plan with their chosen start date and pace counts
     await seedPlan(userId, startDate, counts)
-    // Show the app — land on their Profile page first, then they can
-    // navigate anywhere else from there.
+    // Show the app — land on Today's Workspace
     setShowOnboarding(false)
     setPlanReady(true)
-    router.push('/profile')
+    router.push('/today')
   }
 
   if (checkingPlan) {
@@ -111,9 +107,13 @@ function PlanBoundary({
   if (showOnboarding) {
     return (
       <>
-        <OnboardingModal open={true} onComplete={handleOnboardingComplete} />
+        <OnboardingModal
+          open={true}
+          onClose={() => router.push('/')}
+          onComplete={handleOnboardingComplete}
+        />
         {/* Faded background while onboarding */}
-        <div className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40" />
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-md z-40" />
       </>
     )
   }

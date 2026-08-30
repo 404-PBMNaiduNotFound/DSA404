@@ -12,6 +12,7 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
+  updateProfile,
   type User,
 } from "firebase/auth";
 import { FirebaseError } from "firebase/app";
@@ -22,20 +23,27 @@ import { PasswordInput } from "@/components/PasswordInput";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Check, X } from "lucide-react";
-import { claimUsername, isUsernameAvailable, loadUserProfile, normalizeUsername, saveUserProfile, USERNAME_REGEX } from "@/lib/db";
+import { Loader2, Check, X, User as UserIcon, AtSign, Mail, Lock } from "lucide-react";
+import {
+  claimUsername,
+  getEmailByUsername,
+  isUsernameAvailable,
+  normalizeUsername,
+  saveUserProfile,
+  USERNAME_REGEX,
+} from "@/lib/db";
 
 const emailSchema = z.string().trim().email("Enter a valid email address").max(255);
 const passwordSchema = z.string().min(8, "Password must be at least 8 characters").max(72);
 
-/** Firebase's auth/* error codes -> the same friendly copy Supabase's messages used to give. */
+/** Firebase's auth/* error codes -> user-friendly messages. */
 function authErrorMessage(e: unknown): string {
   if (e instanceof FirebaseError) {
     switch (e.code) {
       case "auth/invalid-credential":
       case "auth/wrong-password":
       case "auth/user-not-found":
-        return "Invalid email or password.";
+        return "Invalid email/username or password.";
       case "auth/email-already-in-use":
         return "An account with this email already exists.";
       case "auth/weak-password":
@@ -54,27 +62,20 @@ export function AuthPageContent() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/today";
 
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [busy, setBusy] = useState(false);
-  const [resetSent, setResetSent] = useState(false);
-
-  // ── Username step — shown after a successful sign-in/sign-up/Google auth
-  // for any account that doesn't have a username yet (brand-new signups,
-  // and existing accounts from before this feature that haven't picked one).
-  const [step, setStep] = useState<"credentials" | "username">("credentials");
-  const [pendingUser, setPendingUser] = useState<User | null>(null);
+  const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [usernameStatus, setUsernameStatus] = useState<
     "idle" | "checking" | "available" | "taken" | "invalid"
   >("idle");
-  const [usernameBusy, setUsernameBusy] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
-  // Debounced live availability check as the user types their handle.
+  // Debounced live availability check as the user types their handle during sign-up
   useEffect(() => {
-    if (step !== "username") return;
+    if (mode !== "signup") return;
     const raw = username.trim();
     if (!raw) {
       setUsernameStatus("idle");
@@ -93,77 +94,14 @@ export function AuthPageContent() {
       } catch {
         setUsernameStatus("idle");
       }
-    }, 450);
+    }, 400);
     return () => clearTimeout(t);
-  }, [username, step]);
+  }, [username, mode]);
 
-  /** After any successful auth, continue straight into the app. Username
-   * (for accounts that don't have one yet) is now collected as part of the
-   * onboarding flow — after preferences and start date — instead of here. */
   async function proceedAfterAuth(user: User, successMessage?: { title: string; description?: string }) {
     if (successMessage) toast.success(successMessage.title, { description: successMessage.description });
     router.push(next);
   }
-
-  async function handleClaimUsername() {
-    if (!pendingUser) return;
-    const u = normalizeUsername(username);
-    if (!USERNAME_REGEX.test(u)) {
-      setUsernameStatus("invalid");
-      return;
-    }
-    const trimmedName = displayName.trim();
-    setUsernameBusy(true);
-    try {
-      await claimUsername(pendingUser.uid, u);
-      if (trimmedName) {
-        await saveUserProfile(pendingUser.uid, { displayName: trimmedName });
-      }
-      toast.success("You're all set!", { description: `Your public profile is live at /profile/${u}` });
-      router.push(next);
-    } catch (e) {
-      if (e instanceof Error && e.message === "USERNAME_TAKEN") {
-        setUsernameStatus("taken");
-        toast.error("That username is already taken — try another.");
-      } else if (e instanceof Error && e.message === "USERNAME_INVALID") {
-        setUsernameStatus("invalid");
-      } else {
-        toast.error("Couldn't save your username. Try again.");
-      }
-    } finally {
-      setUsernameBusy(false);
-    }
-  }
-
-  async function handleForgotPassword() {
-    if (!auth) {
-      toast.error("Firebase not initialized. Check your configuration.");
-      return;
-    }
-    const parsed = emailSchema.safeParse(email);
-    if (!parsed.success) {
-      toast.error("Enter your email address above first, then click Forgot password.");
-      return;
-    }
-    setBusy(true);
-    try {
-      await sendPasswordResetEmail(auth, parsed.data);
-      setResetSent(true);
-      toast.success("Reset email sent — check your inbox.");
-    } catch (e) {
-      toast.error(authErrorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  useEffect(() => {
-    if (!auth) return;
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) router.push(next);
-    });
-    return () => unsub();
-  }, [router, next]);
 
   async function handleSignIn() {
     if (!auth) {
@@ -171,19 +109,36 @@ export function AuthPageContent() {
       return;
     }
 
+    const identifier = email.trim();
+    if (!identifier) {
+      toast.error("Please enter your email or username.");
+      return;
+    }
+
     try {
-      emailSchema.parse(email);
       passwordSchema.parse(password);
     } catch (e) {
       if (e instanceof z.ZodError) {
-        toast.error(e.issues[0]?.message ?? "Invalid input.");
+        toast.error(e.issues[0]?.message ?? "Invalid password.");
       }
       return;
     }
 
     setBusy(true);
     try {
-      const cred = await signInWithEmailAndPassword(auth, email, password);
+      let targetEmail = identifier;
+      // If identifier doesn't contain '@', resolve it as a username
+      if (!identifier.includes("@")) {
+        const resolved = await getEmailByUsername(identifier);
+        if (!resolved) {
+          toast.error("No account found with that username.");
+          setBusy(false);
+          return;
+        }
+        targetEmail = resolved;
+      }
+
+      const cred = await signInWithEmailAndPassword(auth, targetEmail, password);
       await proceedAfterAuth(cred.user, {
         title: "Welcome back! Thanks for logging in to our website.",
         description: "Ready to solve today's DSA problems?",
@@ -201,8 +156,29 @@ export function AuthPageContent() {
       return;
     }
 
+    const trimmedEmail = email.trim();
+    const trimmedName = fullName.trim();
+    const u = normalizeUsername(username);
+
+    // 1. Validate full name
+    if (!trimmedName) {
+      toast.error("Please enter your full name.");
+      return;
+    }
+
+    // 2. Validate username
+    if (!u) {
+      toast.error("Please choose a username.");
+      return;
+    }
+    if (!USERNAME_REGEX.test(u)) {
+      toast.error("Username must be 3-20 characters: lowercase letters, numbers, - or _ only.");
+      return;
+    }
+
+    // 3. Validate email & password
     try {
-      emailSchema.parse(email);
+      emailSchema.parse(trimmedEmail);
       passwordSchema.parse(password);
     } catch (e) {
       if (e instanceof z.ZodError) {
@@ -213,8 +189,31 @@ export function AuthPageContent() {
 
     setBusy(true);
     try {
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
-      await proceedAfterAuth(cred.user);
+      // Re-verify username availability before creating account
+      const available = await isUsernameAvailable(u);
+      if (!available) {
+        toast.error("That username is already taken. Please choose another.");
+        setUsernameStatus("taken");
+        setBusy(false);
+        return;
+      }
+
+      // Create Firebase Auth user
+      const cred = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
+
+      // Claim the username and store email for username login
+      await claimUsername(cred.user.uid, u, trimmedEmail);
+
+      // Save user display name and profile
+      await saveUserProfile(cred.user.uid, { displayName: trimmedName });
+      try {
+        await updateProfile(cred.user, { displayName: trimmedName });
+      } catch {}
+
+      await proceedAfterAuth(cred.user, {
+        title: "Account created successfully! 🎉",
+        description: `Welcome @${u}! Let's set up your plan.`,
+      });
     } catch (e) {
       toast.error(authErrorMessage(e));
     } finally {
@@ -243,94 +242,54 @@ export function AuthPageContent() {
     }
   }
 
-  if (step === "username") {
-    const statusIcon =
-      usernameStatus === "checking" ? (
-        <Loader2 className="size-4 animate-spin text-muted-foreground" />
-      ) : usernameStatus === "available" ? (
-        <Check className="size-4 text-emerald-500" />
-      ) : usernameStatus === "taken" || usernameStatus === "invalid" ? (
-        <X className="size-4 text-red-500" />
-      ) : null;
-
-    const statusMessage =
-      usernameStatus === "taken"
-        ? "That username is already taken — choose another."
-        : usernameStatus === "invalid"
-          ? "3-20 characters: lowercase letters, numbers, - or _ only."
-          : usernameStatus === "available"
-            ? "Available!"
-            : null;
-
-    const canSubmit = usernameStatus === "available" && !usernameBusy;
-
-    return (
-      <main className="flex min-h-screen items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md">
-          <Card className="w-full max-w-md border-border bg-card">
-            <CardHeader>
-              <CardTitle>Choose your username</CardTitle>
-              <CardDescription>
-                This becomes your public profile link — e.g. dsa404.app/profile/{username || "yourname"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="display-name">Full Name</Label>
-                <Input
-                  id="display-name"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="e.g. Alex Turner"
-                  disabled={usernameBusy}
-                  maxLength={60}
-                />
-                <p className="text-xs text-muted-foreground">Shown on your public profile (optional).</p>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="username">Username</Label>
-                <div className="relative">
-                  <Input
-                    id="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="e.g. alex-turner"
-                    disabled={usernameBusy}
-                    className={
-                      usernameStatus === "taken" || usernameStatus === "invalid"
-                        ? "border-red-500 focus-visible:ring-red-500 pr-9"
-                        : usernameStatus === "available"
-                          ? "border-emerald-500 focus-visible:ring-emerald-500 pr-9"
-                          : "pr-9"
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && canSubmit) handleClaimUsername();
-                    }}
-                  />
-                  {statusIcon && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2">{statusIcon}</span>
-                  )}
-                </div>
-                {statusMessage && (
-                  <p
-                    className={`text-xs ${usernameStatus === "available" ? "text-emerald-500" : "text-red-500"
-                      }`}
-                  >
-                    {statusMessage}
-                  </p>
-                )}
-              </div>
-
-              <Button className="w-full" disabled={!canSubmit} onClick={handleClaimUsername}>
-                {usernameBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Continue
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
-    );
+  async function handleForgotPassword() {
+    if (!auth) {
+      toast.error("Firebase not initialized. Check your configuration.");
+      return;
+    }
+    const identifier = email.trim();
+    if (!identifier) {
+      toast.error("Enter your email or username above first, then click Forgot password.");
+      return;
+    }
+    setBusy(true);
+    try {
+      let targetEmail = identifier;
+      if (!identifier.includes("@")) {
+        const resolved = await getEmailByUsername(identifier);
+        if (!resolved) {
+          toast.error("No account found with that username.");
+          setBusy(false);
+          return;
+        }
+        targetEmail = resolved;
+      }
+      await sendPasswordResetEmail(auth, targetEmail);
+      setResetSent(true);
+      toast.success(`Reset email sent to ${targetEmail} — check your inbox.`);
+    } catch (e) {
+      toast.error(authErrorMessage(e));
+    } finally {
+      setBusy(false);
+    }
   }
+
+  useEffect(() => {
+    if (!auth) return;
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) router.push(next);
+    });
+    return () => unsub();
+  }, [router, next]);
+
+  const usernameIcon =
+    usernameStatus === "checking" ? (
+      <Loader2 className="size-4 animate-spin text-muted-foreground" />
+    ) : usernameStatus === "available" ? (
+      <Check className="size-4 text-emerald-500" />
+    ) : usernameStatus === "taken" || usernameStatus === "invalid" ? (
+      <X className="size-4 text-destructive" />
+    ) : null;
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
@@ -344,8 +303,8 @@ export function AuthPageContent() {
           </svg>
           Back to home
         </Link>
-        <Card className="w-full max-w-md border-border bg-card">
-          <CardHeader className="text-center">
+        <Card className="w-full max-w-md border-border bg-card shadow-lg">
+          <CardHeader className="text-center pb-4">
             <div className="flex items-center justify-center gap-2.5 mb-1">
               <div className="size-8 rounded-full overflow-hidden border border-border/80 shadow-md ring-1 ring-primary/20 bg-background shrink-0">
                 <img src="/logo.jpg" alt="DSA404 Logo" className="size-full object-cover" />
@@ -355,24 +314,84 @@ export function AuthPageContent() {
                 <span className="bg-gradient-to-br from-primary to-orange-500 bg-clip-text text-transparent drop-shadow-sm ml-[1px]">⁴⁰⁴</span>
               </div>
             </div>
-            <CardDescription>
-              {mode === "signin" ? "Sign in to your account" : "Create a new account"}
+            <CardDescription className="text-sm">
+              {mode === "signin" ? "Sign in to track your DSA roadmap" : "Create your account & personalised plan"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Tabs defaultValue="email" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="email">Email</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="email">Account</TabsTrigger>
                 <TabsTrigger value="google">Google</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="email" className="space-y-4">
+              <TabsContent value="email" className="space-y-3.5">
+                {mode === "signup" && (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="full-name">Full Name</Label>
+                      <Input
+                        id="full-name"
+                        type="text"
+                        placeholder="e.g. Alex Turner"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        disabled={busy}
+                        maxLength={60}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="signup-username">Username</Label>
+                      <div className="relative">
+                        <Input
+                          id="signup-username"
+                          type="text"
+                          placeholder="e.g. alex_turner"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          disabled={busy}
+                          className={
+                            usernameStatus === "taken" || usernameStatus === "invalid"
+                              ? "border-destructive focus-visible:ring-destructive pr-9"
+                              : usernameStatus === "available"
+                                ? "border-emerald-500 focus-visible:ring-emerald-500 pr-9"
+                                : "pr-9"
+                          }
+                        />
+                        {usernameIcon && (
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                            {usernameIcon}
+                          </span>
+                        )}
+                      </div>
+                      <p
+                        className={`text-[11px] ${
+                          usernameStatus === "taken" || usernameStatus === "invalid"
+                            ? "text-destructive"
+                            : usernameStatus === "available"
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-muted-foreground"
+                        }`}
+                      >
+                        {usernameStatus === "taken"
+                          ? "That username is already taken — choose another."
+                          : usernameStatus === "invalid"
+                            ? "3-20 characters: lowercase letters, numbers, - or _ only."
+                            : usernameStatus === "available"
+                              ? "Username is available!"
+                              : "Your unique handle for login and public profile."}
+                      </p>
+                    </div>
+                  </>
+                )}
+
                 <div className="space-y-1.5">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">{mode === "signin" ? "Email or Username" : "Email"}</Label>
                   <Input
                     id="email"
-                    type="email"
-                    placeholder="your@example.com"
+                    type={mode === "signin" ? "text" : "email"}
+                    placeholder={mode === "signin" ? "your@example.com or username" : "your@example.com"}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={busy}
@@ -383,6 +402,7 @@ export function AuthPageContent() {
                   <Label htmlFor="password">Password</Label>
                   <PasswordInput
                     id="password"
+                    placeholder="Min. 8 characters"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={busy}
@@ -390,19 +410,22 @@ export function AuthPageContent() {
                 </div>
 
                 <Button
-                  className="w-full"
-                  disabled={busy}
+                  className="w-full mt-2"
+                  disabled={busy || (mode === "signup" && usernameStatus === "taken")}
                   onClick={mode === "signin" ? handleSignIn : handleSignUp}
                 >
                   {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {mode === "signin" ? "Sign In" : "Create Account"}
                 </Button>
 
-                <div className="space-y-2">
+                <div className="space-y-2 pt-1">
                   <button
                     type="button"
-                    className="w-full text-sm text-muted-foreground hover:text-foreground"
-                    onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+                    className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    onClick={() => {
+                      setMode(mode === "signin" ? "signup" : "signin");
+                      setUsernameStatus("idle");
+                    }}
                   >
                     {mode === "signin"
                       ? "Don't have an account? Sign up"
@@ -411,13 +434,13 @@ export function AuthPageContent() {
 
                   {mode === "signin" && (
                     resetSent ? (
-                      <p className="text-center text-sm text-success">
+                      <p className="text-center text-xs text-success">
                         ✓ Reset email sent — check your inbox.
                       </p>
                     ) : (
                       <button
                         type="button"
-                        className="w-full text-sm text-primary hover:underline disabled:opacity-50"
+                        className="w-full text-xs text-primary hover:underline disabled:opacity-50 cursor-pointer"
                         disabled={busy}
                         onClick={handleForgotPassword}
                       >
@@ -428,10 +451,10 @@ export function AuthPageContent() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="google" className="pt-4">
+              <TabsContent value="google" className="pt-2">
                 <Button
                   variant="outline"
-                  className="w-full"
+                  className="w-full cursor-pointer"
                   disabled={busy}
                   onClick={handleGoogleSignIn}
                 >

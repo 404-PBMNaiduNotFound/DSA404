@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Code2, ExternalLink, Trash2, CheckCircle2, Save } from "lucide-react";
+import { Code2, ExternalLink, Trash2, CheckCircle2, Save, Lightbulb } from "lucide-react";
 import type { CodeSubmission } from "@/lib/db";
 import { toast } from "sonner";
 
@@ -15,7 +15,7 @@ interface CodeModalProps {
   onOpenChange: (open: boolean) => void;
   problemName: string;
   existingSubmission?: CodeSubmission;
-  onSave: (code: string, link: string) => Promise<void>;
+  onSave: (code: string, link: string, keyPoints: string) => Promise<void>;
   onDelete?: () => Promise<void>;
   readOnly?: boolean;
 }
@@ -31,14 +31,17 @@ export function CodeModal({
 }: CodeModalProps) {
   const [code, setCode] = useState("");
   const [link, setLink] = useState("");
+  const [keyPoints, setKeyPoints] = useState("");
   const [busy, setBusy] = useState(false);
 
   // Sync state whenever modal opens or existingSubmission changes
   useEffect(() => {
     if (open) {
-      const draft = typeof window !== "undefined" ? localStorage.getItem(`draft_code_${problemName}`) : null;
-      setCode(existingSubmission?.code || draft || "");
+      const draftCode = typeof window !== "undefined" ? localStorage.getItem(`draft_code_${problemName}`) : null;
+      const draftKeyPoints = typeof window !== "undefined" ? localStorage.getItem(`draft_keypoints_${problemName}`) : null;
+      setCode(existingSubmission?.code || draftCode || "");
       setLink(existingSubmission?.link || "");
+      setKeyPoints(existingSubmission?.keyPoints || draftKeyPoints || "");
     }
   }, [open, existingSubmission, problemName]);
 
@@ -53,6 +56,13 @@ export function CodeModal({
     setLink(val);
   };
 
+  const handleKeyPointsChange = (val: string) => {
+    setKeyPoints(val);
+    if (typeof window !== "undefined" && problemName && !readOnly) {
+      localStorage.setItem(`draft_keypoints_${problemName}`, val);
+    }
+  };
+
   const handleSave = async () => {
     if (!code.trim()) {
       toast.error("Please enter your solution code before submitting!");
@@ -60,9 +70,10 @@ export function CodeModal({
     }
     setBusy(true);
     try {
-      await onSave(code, link);
+      await onSave(code, link, keyPoints);
       if (typeof window !== "undefined" && problemName) {
         localStorage.removeItem(`draft_code_${problemName}`);
+        localStorage.removeItem(`draft_keypoints_${problemName}`);
       }
       toast.success("Solution code saved successfully!");
       onOpenChange(false);
@@ -80,6 +91,7 @@ export function CodeModal({
       await onDelete();
       if (typeof window !== "undefined" && problemName) {
         localStorage.removeItem(`draft_code_${problemName}`);
+        localStorage.removeItem(`draft_keypoints_${problemName}`);
       }
       toast.success("Solution deleted");
       onOpenChange(false);
@@ -96,14 +108,14 @@ export function CodeModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg font-extrabold text-foreground">
             <Code2 className="size-5 text-primary" />
-            {readOnly ? `Code Solution — ${problemName}` : `Add Solution / Submission — ${problemName}`}
+            {readOnly ? `Code Solution — ${problemName}` : `Add Solution / Submission / Key Points — ${problemName}`}
           </DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 py-2">
           {!readOnly && (
             <p className="text-xs text-muted-foreground">
-              To mark this problem complete, paste your solution code below and optionally provide a submission URL.
+              To mark this problem complete, paste your solution code below, write key Points of problem and optionally provide a submission URL.
             </p>
           )}
 
@@ -132,6 +144,31 @@ export function CodeModal({
                 value={link}
                 onChange={(e) => handleLinkChange(e.target.value)}
                 className="text-xs rounded-xl bg-background/50 border-white/10"
+              />
+            )}
+          </div>
+
+          {/* Key Points / Pattern / Hint */}
+          <div className="space-y-1.5">
+            <Label htmlFor="key-points" className="text-xs font-bold text-foreground flex items-center gap-1.5">
+              <Lightbulb className="size-3.5 text-amber-400" />
+              Key Points / Pattern / Hints (optional)
+            </Label>
+            {readOnly ? (
+              existingSubmission?.keyPoints || keyPoints ? (
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3 text-xs text-foreground font-sans whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto">
+                  {existingSubmission?.keyPoints || keyPoints}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">No key points or hints recorded</p>
+              )
+            ) : (
+              <Textarea
+                id="key-points"
+                placeholder="Write key patterns, hints, intuition, TC/SC complexity, or edge cases here..."
+                value={keyPoints}
+                onChange={(e) => handleKeyPointsChange(e.target.value)}
+                className="font-sans text-xs h-24 resize-none bg-background/60 border-white/10 rounded-2xl p-3 focus-visible:ring-primary"
               />
             )}
           </div>

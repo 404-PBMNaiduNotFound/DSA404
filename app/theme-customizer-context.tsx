@@ -23,7 +23,7 @@ export interface ThemeCustom {
 // ─── Presets ─────────────────────────────────────────────────────────────────
 
 export const PRESETS: Record<string, { label: string; emoji: string; colors: ThemeCustom }> = {
-  default: {
+  gold: {
     label: "Parchment & Gold",
     emoji: "🏆",
     colors: {
@@ -45,7 +45,7 @@ export const PRESETS: Record<string, { label: string; emoji: string; colors: The
       },
     },
   },
-  ocean: {
+  default: {
     label: "Ocean Blue",
     emoji: "🌊",
     colors: {
@@ -243,9 +243,12 @@ function buildCssVars(colors: ThemeColors, mode: ColorMode): Record<string, stri
   };
 }
 
+export { buildCssVars, hexToOklch };
+
 // ─── Context ──────────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = "dsa-tracker-theme-custom";
+export const THEME_CUSTOM_STORAGE_KEY = "dsa-tracker-theme-custom";
+const STORAGE_KEY = THEME_CUSTOM_STORAGE_KEY;
 
 interface ThemeCustomizerCtx {
   colors: ThemeCustom;
@@ -261,22 +264,45 @@ interface ThemeCustomizerCtx {
 const Ctx = createContext<ThemeCustomizerCtx | null>(null);
 
 export function ThemeCustomizerProvider({ children }: { children: React.ReactNode }) {
-  const [colors, setColors] = useState<ThemeCustom>(PRESETS.default.colors);
-  const [activePreset, setActivePreset] = useState<string | null>("default");
+  const [colors, setColors] = useState<ThemeCustom>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(THEME_CUSTOM_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved) as { colors: ThemeCustom; preset: string | null };
+          if (parsed?.colors) return parsed.colors;
+        }
+      } catch { }
+    }
+    return PRESETS.default.colors;
+  });
+
+  const [activePreset, setActivePreset] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(THEME_CUSTOM_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved) as { colors: ThemeCustom; preset: string | null };
+          if (parsed?.preset !== undefined) return parsed.preset;
+        }
+      } catch { }
+    }
+    return "default";
+  });
   const [panelOpen, setPanelOpen] = useState(false);
   const openPanel = useCallback(() => setPanelOpen(true), []);
   const closePanel = useCallback(() => setPanelOpen(false), []);
 
-  // Load persisted colors on mount
+  // Sync with persisted colors on mount
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved) as { colors: ThemeCustom; preset: string | null };
-        setColors(parsed.colors);
-        setActivePreset(parsed.preset);
+        if (parsed?.colors) setColors(parsed.colors);
+        if (parsed?.preset !== undefined) setActivePreset(parsed.preset);
       }
-    } catch {}
+    } catch { }
   }, []);
 
   // Inject CSS vars on every color change
@@ -304,7 +330,7 @@ export function ThemeCustomizerProvider({ children }: { children: React.ReactNod
   const persist = useCallback((next: ThemeCustom, preset: string | null) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ colors: next, preset }));
-    } catch {}
+    } catch { }
   }, []);
 
   const applyPreset = useCallback((key: string) => {

@@ -7,6 +7,7 @@ import { EXTRA_PROBLEMS, type Sheet } from "@/lib/extra-problems-data";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,18 +24,23 @@ import type { CodeSubmission } from "@/lib/db";
 import { getChatGPTAiPromptUrl } from "@/lib/aiTutorPrompt";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
+function ThemedTooltip({ hint, children }: { hint: string; children: React.ReactNode }) {
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>{children}</TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs rounded-xl border border-white/15 bg-popover/95 backdrop-blur-md px-3 py-1.5 text-xs font-medium text-popover-foreground shadow-2xl">
+          {hint}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 export type Platform =
   | "All"
   | "LeetCode"
-  | "CodeStudio"
-  | "GFG"
-  | "CodeChef"
-  | "HackerRank"
-  | "AtCoder"
-  | "Codeforces"
-  | "TUF"
-  | "Other";
+  | "GFG";
 
 export type SheetFilter = "All" | "Core 404" | Sheet;
 
@@ -42,8 +48,6 @@ export type StatusFilter =
   | "All"
   | "Completed"
   | "Incomplete"
-  | "Attempted"
-  | "Not Attempted"
   | "Revision Needed";
 
 export type SortOption =
@@ -55,18 +59,10 @@ export type SortOption =
 const PLATFORMS: Platform[] = [
   "All",
   "LeetCode",
-  "CodeStudio",
   "GFG",
-  "CodeChef",
-  "HackerRank",
-  "AtCoder",
-  "Codeforces",
-  "TUF",
-  "Other",
 ];
 
 const SHEET_FILTERS: SheetFilter[] = [
-  "All",
   "Core 404",
   "Practice 404 Sheet",
 ];
@@ -75,8 +71,6 @@ const STATUS_FILTERS: StatusFilter[] = [
   "Incomplete",
   "Completed",
   "All",
-  "Attempted",
-  "Not Attempted",
   "Revision Needed",
 ];
 
@@ -93,13 +87,7 @@ function canonicalPlatform(raw: string): Platform {
   const r = raw.toLowerCase();
   if (r.includes("leetcode")) return "LeetCode";
   if (r.includes("gfg") || r.includes("geeks")) return "GFG";
-  if (r.includes("hacker")) return "HackerRank";
-  if (r.includes("code") && r.includes("studio")) return "CodeStudio";
-  if (r.includes("chef")) return "CodeChef";
-  if (r.includes("atcoder")) return "AtCoder";
-  if (r.includes("forces")) return "Codeforces";
-  if (r.includes("tuf") || r.includes("striver") || r.includes("takeuforward")) return "TUF";
-  return "Other";
+  return "All";
 }
 
 export function platformSearchLink(name: string, platform: Platform): string {
@@ -107,12 +95,6 @@ export function platformSearchLink(name: string, platform: Platform): string {
   switch (platform) {
     case "LeetCode": return `https://leetcode.com/problemset/?search=${q}`;
     case "GFG": return `https://www.geeksforgeeks.org/explore?search=${q}`;
-    case "HackerRank": return `https://www.hackerrank.com/domains/data-structures`;
-    case "CodeStudio": return `https://www.naukri.com/code360/search?q=${q}`;
-    case "CodeChef": return `https://www.codechef.com/practice?search=${q}`;
-    case "AtCoder": return `https://atcoder.jp/tasks?keyword=${q}`;
-    case "Codeforces": return `https://codeforces.com/problemset?query=${q}`;
-    case "TUF": return `https://takeuforward.org/?s=${q}`;
     default: return `https://leetcode.com/problemset/?search=${q}`;
   }
 }
@@ -125,14 +107,7 @@ function googleSearchUrl(problemName: string) {
 export const PLATFORM_META: Record<Platform, { label: string; color: string; bg: string; dot: string }> = {
   All: { label: "All", color: "text-foreground", bg: "bg-secondary", dot: "bg-muted-foreground" },
   LeetCode: { label: "LeetCode", color: "text-[#FFA116]", bg: "bg-[#FFA116]/10", dot: "bg-[#FFA116]" },
-  CodeStudio: { label: "CodeStudio", color: "text-[#F97316]", bg: "bg-[#F97316]/10", dot: "bg-[#F97316]" },
   GFG: { label: "GeeksforGeeks", color: "text-[#2F8D46]", bg: "bg-[#2F8D46]/10", dot: "bg-[#2F8D46]" },
-  CodeChef: { label: "CodeChef", color: "text-[#5B4638]", bg: "bg-[#5B4638]/10", dot: "bg-[#5B4638]" },
-  HackerRank: { label: "HackerRank", color: "text-[#2EC866]", bg: "bg-[#2EC866]/10", dot: "bg-[#2EC866]" },
-  AtCoder: { label: "AtCoder", color: "text-[#333333]", bg: "bg-muted", dot: "bg-foreground" },
-  Codeforces: { label: "Codeforces", color: "text-[#1F8ACB]", bg: "bg-[#1F8ACB]/10", dot: "bg-[#1F8ACB]" },
-  TUF: { label: "TUF", color: "text-primary", bg: "bg-primary/10", dot: "bg-primary" },
-  Other: { label: "Other", color: "text-muted-foreground", bg: "bg-secondary", dot: "bg-muted-foreground" },
 };
 
 const DIFF_META: Record<string, { label: string; color: string; bg: string }> = {
@@ -145,7 +120,7 @@ const DIFF_META: Record<string, { label: string; color: string; bg: string }> = 
 };
 
 const SHEET_META: Record<SheetFilter, { color: string; bg: string }> = {
-  "All": { color: "text-foreground", bg: "bg-secondary" },
+  "All": { color: "text-primary", bg: "bg-primary/10" },
   "Core 404": { color: "text-primary", bg: "bg-primary/10" },
   "Practice 404 Sheet": { color: "text-[#00B8A3]", bg: "bg-[#00B8A3]/10" },
 };
@@ -217,15 +192,6 @@ function youtubeSearchUrl(problemName: string) {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
 }
 
-function chatGptProblemUrl(problemName: string) {
-  const prompt = `Explain the problem "${problemName}" in detail. Cover:
-1. Problem intuition and what it's asking
-2. Brute force approach with time and space complexity
-3. Better/optimized approach with explanation
-4. Optimal solution with step-by-step walkthrough, time complexity, and space complexity
-5. Key patterns and tips to remember`;
-  return `https://chatgpt.com/?q=${encodeURIComponent(prompt)}`;
-}
 
 // ─── Problem row ─────────────────────────────────────────────────────────────
 
@@ -247,8 +213,8 @@ function ProblemItem({
     color: "text-purple-600 dark:text-purple-400",
     bg: "bg-purple-500/10",
   };
-  const pm = PLATFORM_META[problem.platform] ?? PLATFORM_META["Other"];
-  const sm = SHEET_META[problem.sheet] ?? SHEET_META["All"];
+  const pm = PLATFORM_META[problem.platform] ?? PLATFORM_META["All"];
+  const sm = SHEET_META[problem.sheet] ?? SHEET_META["Core 404"];
   const checkId = `pb-${problem.id}-${problem.name.replace(/\W+/g, "-")}`;
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -300,35 +266,17 @@ function ProblemItem({
           {problem.difficulty}
         </span>
 
-        <span className={cn("flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", pm.bg, pm.color)}>
-          <span className={cn("size-1.5 rounded-full", pm.dot)} />
-          {pm.label}
-        </span>
-
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Direct Link to Official Platform */}
-          {problem.link && (
-            <a
-              href={problem.link}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-2 py-1 text-xs font-semibold text-foreground transition-colors"
-              title={`Open official page on ${problem.platform}`}
-            >
-              <span className="hidden xs:inline">{problem.platform}</span>
-              <ExternalLink className="size-3 text-muted-foreground" />
-            </a>
-          )}
 
           {/* Links Dropdown Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-2 py-1 text-xs font-semibold text-foreground transition-colors"
-                title="All problem links & resources"
-              >
+                className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-2 py-1 text-xs font-semibold text-foreground transition-colors"                >
                 <Link2 className="size-3.5 text-sky-400" />
-                <span>Links</span>
+                <ThemedTooltip hint="Some resources related to this problem">
+                  <span>Links</span>
+                </ThemedTooltip>
                 <ChevronDown className="size-3 text-muted-foreground" />
               </button>
             </DropdownMenuTrigger>
@@ -337,26 +285,26 @@ function ProblemItem({
                 <DropdownMenuItem asChild>
                   <a href={problem.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-semibold text-foreground">
                     <ExternalLink className="size-3.5 text-sky-400" />
-                    <span>{problem.platform} Official Page</span>
+                    <ThemedTooltip hint={`${problem.platform} Official Page Link if it shows 404 erros then try solve btn`}>
+                      <span>{problem.platform} Official Page</span>
+                    </ThemedTooltip>
                   </a>
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem asChild>
-                <a href={getChatGPTAiPromptUrl(problem.name)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
-                  <Sparkles className="size-3.5 text-emerald-400" />
-                  <span>ChatGPT AI Tutor & Prompt</span>
-                </a>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
                 <a href={youtubeSearchUrl(problem.name)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-medium text-foreground">
                   <Video className="size-3.5 text-rose-500" />
-                  <span>YouTube Solution Video</span>
+                  <ThemedTooltip hint={`redirect to youtube search results for ${problem.name} solution intuition explained`}>
+                    <span>YouTube Solution Video</span>
+                  </ThemedTooltip>
                 </a>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <a href={googleSearchUrl(problem.name)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-medium text-foreground">
                   <Search className="size-3.5 text-sky-400" />
-                  <span>Google Search Solution</span>
+                  <ThemedTooltip hint={`redirect to google search results for ${problem.name} solution intuition explained`}>
+                    <span>Google Search Solution</span>
+                  </ThemedTooltip>
                 </a>
               </DropdownMenuItem>
               {submission?.code && (
@@ -364,40 +312,42 @@ function ProblemItem({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={() => setModalOpen(true)} className="flex items-center gap-2 text-xs text-emerald-400 font-bold">
                     <Code2 className="size-3.5 text-emerald-400" />
-                    <span>View Submitted Code</span>
+                    <ThemedTooltip hint={`View or edit your keypoints or submitted code for this problem`}>
+                      <span>View Submitted Code</span>
+                    </ThemedTooltip>
                   </DropdownMenuItem>
                 </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-
           {/* Solve Button */}
-          <a
+          <ThemedTooltip hint="Solve with Interactive ChatGPT DSA AI Tutor it explains the problem statement & hints for solving the problem same as coding platforms"><a
             href={getChatGPTAiPromptUrl(problem.name)}
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/20"
-            title="Solve with Interactive ChatGPT DSA AI Tutor"
           >
             <Sparkles className="size-3 text-emerald-400" />
             Solve
           </a>
+          </ThemedTooltip>
 
           {/* Code Button */}
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            title={done ? "View or edit your submitted code for this problem" : "Add code solution to mark problem as completed"}
-            className={cn(
-              "flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors",
-              done
-                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25"
-                : "border border-border text-muted-foreground hover:border-primary hover:text-primary",
-            )}
-          >
-            <Code2 className="size-3" />
-            <span>Code</span>
-          </button>
+          <ThemedTooltip hint={done ? "View or edit your submitted code for this problem" : "Add code solution to mark problem as completed"}>
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className={cn(
+                "flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors",
+                done
+                  ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25"
+                  : "border border-border text-muted-foreground hover:border-primary hover:text-primary",
+              )}
+            >
+              <Code2 className="size-3" />
+              <span>Code</span>
+            </button>
+          </ThemedTooltip>
         </div>
       </li>
 
@@ -474,8 +424,6 @@ export default function ProblemsPage() {
 
       if (paramStatus === "Completed" && !isDone) return false;
       if (paramStatus === "Incomplete" && isDone) return false;
-      if (paramStatus === "Attempted" && !hasSubmission) return false;
-      if (paramStatus === "Not Attempted" && hasSubmission) return false;
       if (paramStatus === "Revision Needed" && !hasSubmission) return false;
 
       if (paramDiff !== "All" && p.difficulty !== paramDiff) return false;
@@ -571,7 +519,7 @@ export default function ProblemsPage() {
   const hasActiveFilter =
     paramDiff !== "All" ||
     paramPlat !== "All" ||
-    paramSheet !== "All" ||
+    paramSheet !== "Practice 404 Sheet" ||
     paramTopic !== "All" ||
     paramStatus !== "Incomplete" ||
     paramSort !== "Default Order" ||
@@ -580,11 +528,11 @@ export default function ProblemsPage() {
   function clearFilters() {
     updateUrl({
       page: 1,
-      status: "All",
+      status: "Incomplete",
       platform: "All",
       difficulty: "All",
       topic: "All",
-      sheet: "All",
+      sheet: "Practice 404 Sheet",
       sort: "Default Order",
       q: "",
     });
@@ -600,7 +548,7 @@ export default function ProblemsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Problems</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {ALL_PROBLEMS.length} verified problems from 6 sheets —{" "}
+            {ALL_PROBLEMS.length} verified problems from {SHEET_FILTERS.length} sheets —{" "}
             <span className="font-medium text-green-600 dark:text-green-400">
               {totalDone} completed
             </span>
@@ -725,7 +673,7 @@ export default function ProblemsPage() {
               className="h-8 rounded-md border border-border bg-card px-2 text-xs font-medium text-foreground focus:outline-none"
               aria-label="Sheet Filter"
             >
-              <option value="All">All Sheets</option>
+              <option value="All">All</option>
               {SHEET_FILTERS.filter((s) => s !== "All").map((sf) => (
                 <option key={sf} value={sf}>
                   {sf}

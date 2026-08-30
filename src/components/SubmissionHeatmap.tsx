@@ -6,7 +6,6 @@ import { DayDetailModal } from "./DayDetailModal";
 import { Flame, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
-
 export interface SubmissionHeatmapProps {
   data: { date: string; solved: number }[];
   detailMap: Record<string, any[]>;
@@ -165,11 +164,10 @@ export function SubmissionHeatmap({ data, detailMap }: SubmissionHeatmapProps) {
                   setSelectedYear(yr);
                   setWindowOffset(0);
                 }}
-                className={`rounded-md px-2 py-1 font-medium transition-all ${
-                  selectedYear === yr
+                className={`rounded-md px-2 py-1 font-medium transition-all ${selectedYear === yr
                     ? "bg-background text-foreground shadow-sm font-semibold"
                     : "text-muted-foreground hover:text-foreground"
-                }`}
+                  }`}
               >
                 {yr}
               </button>

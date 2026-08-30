@@ -181,9 +181,9 @@ function StatsBar() {
     },
     {
       ref: c4,
-      value: 4,
+      value: 3,
       label: "Built-in Integrations",
-      sub: "Solve AI · YouTube · ChatGPT · Google",
+      sub: "YouTube · ChatGPT(Solve) · Google",
       prefix: "",
       icon: Sparkles,
       iconColor: "text-green-600 dark:text-green-400",

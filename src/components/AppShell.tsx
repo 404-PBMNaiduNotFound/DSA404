@@ -406,12 +406,12 @@ export function AppShell({ email, children }: { email: string; children: React.R
     try {
       const saved = localStorage.getItem(SIDEBAR_STORAGE_KEY);
       if (saved) setSidebarWidth(Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Number(saved))));
-    } catch {}
+    } catch { }
   }, []);
 
   const handleSidebarWidth = useCallback((w: number) => {
     setSidebarWidth(w);
-    try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(w)); } catch {}
+    try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(w)); } catch { }
   }, []);
 
   // Close drawer on route change

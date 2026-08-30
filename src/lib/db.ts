@@ -217,6 +217,7 @@ export interface CompletedProblemSnapshot {
   link: string;
   code?: string;
   submissionLink?: string;
+  keyPoints?: string;
 }
 
 export interface UserProfile {
@@ -620,7 +621,8 @@ export const pushSubscriptionsCol = (uid: string) =>
 
 export interface CodeSubmission {
   code: string;
-  link: string;      // submission link (optional)
+  link: string;
+  keyPoints?: string;
   submittedAt: string;
 }
 

@@ -8,8 +8,11 @@ import {
   DEFAULT_SETTINGS,
   loadSettings,
   saveSettings,
+  type ThemeMode,
   type UserSettings,
 } from "@/lib/settings";
+
+export const THEME_MODE_STORAGE_KEY = "dsa-theme-mode";
 
 interface SettingsCtx {
   settings: UserSettings;
@@ -21,14 +24,31 @@ interface SettingsCtx {
 const Ctx = createContext<SettingsCtx | null>(null);
 
 export function SettingsProvider({ userId, children }: { userId: string; children: ReactNode }) {
-  const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<UserSettings>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem(THEME_MODE_STORAGE_KEY) as ThemeMode | null;
+        if (cached && ["light", "dark", "system"].includes(cached)) {
+          return { ...DEFAULT_SETTINGS, theme: cached };
+        }
+      } catch {}
+    }
+    return DEFAULT_SETTINGS;
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
     void loadSettings(userId)
       .then((s) => {
-        if (alive) setSettings(s);
+        if (alive) {
+          setSettings(s);
+          if (s.theme) {
+            try {
+              localStorage.setItem(THEME_MODE_STORAGE_KEY, s.theme);
+            } catch {}
+          }
+        }
       })
       .catch(() => {
         /* fall back to defaults — settings must never block the app */
@@ -43,6 +63,11 @@ export function SettingsProvider({ userId, children }: { userId: string; childre
 
   const update = useCallback(
     async (patch: Partial<UserSettings>) => {
+      if (patch.theme) {
+        try {
+          localStorage.setItem(THEME_MODE_STORAGE_KEY, patch.theme);
+        } catch {}
+      }
       setSettings((prev) => ({ ...prev, ...patch }));
       try {
         await saveSettings(userId, patch);

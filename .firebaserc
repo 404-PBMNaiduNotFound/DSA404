@@ -1,6 +1,7 @@
 {
   "projects": {
-    "dsa": "dsatracker-67ece"
+    "dsa": "dsatracker-67ece",
+    "default": "dsatracker-67ece"
   },
   "targets": {},
   "etags": {}
