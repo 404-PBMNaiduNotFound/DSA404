@@ -137,8 +137,10 @@ const antiFoucScript = `
     }
 
     var savedSize = localStorage.getItem('dsa-tracker-font-size');
-    if (savedSize) {
+    if (savedSize && savedSize !== 'auto') {
       doc.style.fontSize = savedSize;
+    } else {
+      doc.style.fontSize = '';
     }
 
     var savedView = localStorage.getItem('dsa-tracker-force-view');

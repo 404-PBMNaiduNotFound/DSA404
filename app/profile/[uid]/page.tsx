@@ -207,7 +207,7 @@ export default function PublicProfilePage() {
     <div className="min-h-screen bg-background">
       {/* ── Branded top bar ── */}
       <header className="border-b border-border bg-background/95 backdrop-blur sticky top-0 z-10">
-        <div className="mx-auto flex max-w-3xl items-center gap-2.5 px-4 py-3">
+        <div className="mx-auto flex max-w-7xl items-center gap-2.5 px-4 sm:px-6 lg:px-8 py-3">
           <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-90">
             <div className="size-7 rounded-full overflow-hidden border border-border/80 shadow-sm ring-1 ring-primary/20 bg-background shrink-0">
               <img src="/logo.jpg" alt="DSA404 Logo" className="size-full object-cover" />
@@ -221,7 +221,7 @@ export default function PublicProfilePage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-8 space-y-6">
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
 
         {/* ── GitHub / LeetCode Style Profile Hero Card ── */}
         <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">

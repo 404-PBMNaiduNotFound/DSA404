@@ -206,8 +206,14 @@
   font-family: var(--font-display);
 }
 
-.disable-transitions,
-.disable-transitions * {
-  transition: none !important;
+/* Responsive Base Display Size: 12px for mobile, 15px for desktop/laptop */
+html {
+  font-size: 15px;
+}
+
+@media (max-width: 767px) {
+  html {
+    font-size: 12px;
+  }
 }
 

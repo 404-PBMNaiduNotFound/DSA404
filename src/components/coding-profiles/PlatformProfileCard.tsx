@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { NormalizedCodingProfile } from "@/lib/coding-platforms/types";
 import { DifficultyBreakdown } from "./DifficultyBreakdown";
 import { PlatformHeatmapModal } from "./PlatformHeatmapModal";
@@ -51,16 +51,28 @@ export function PlatformProfileCard({ profile, color = "#6366f1", onRefresh, isR
   const rankOrStar = profile.rank || (profile.badges && profile.badges[0]) || (profile.rating !== null ? `${profile.rating} Rating` : null);
   const hasDifficulty = profile.easySolved !== null || profile.mediumSolved !== null || profile.hardSolved !== null;
 
+  const hasHeatmapData = useMemo(() => {
+    if (isFailed || isLinkedin) return false;
+    const cal = profile.submissionCalendar || profile.platformSpecificData?.submissionCalendar;
+    const hasCal = Boolean(cal && typeof cal === "object" && Object.keys(cal).length > 0);
+    const subs = profile.recentSubmissions || profile.acceptedSubmissions;
+    const hasSubs = Boolean(subs && Array.isArray(subs) && subs.length > 0);
+    const hasContests = Boolean(profile.ratingHistory && Array.isArray(profile.ratingHistory) && profile.ratingHistory.length > 0);
+    const hasSolved = Boolean(typeof profile.totalSolved === "number" && profile.totalSolved > 0);
+
+    return hasCal || hasSubs || hasContests || hasSolved;
+  }, [profile, isFailed, isLinkedin]);
+
   return (
     <>
       <div
-        className="flex flex-col justify-between rounded-3xl border border-white/10 p-5 backdrop-blur-xl transition-all hover:border-primary/50 shadow-xl space-y-4"
+        className="flex flex-col justify-between rounded-3xl border border-white/10 p-3.5 sm:p-5 backdrop-blur-xl transition-all hover:border-primary/50 shadow-xl space-y-3 sm:space-y-4"
         style={{ background: "rgba(255,255,255,0.03)" }}
       >
         {/* Header */}
         <div className="flex items-center justify-between gap-2 min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-base sm:text-lg font-extrabold truncate uppercase tracking-wide" style={{ color }}>
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+            <span className="text-xs sm:text-base font-extrabold truncate uppercase tracking-wide" style={{ color }}>
               {profile.platform}
             </span>
             {targetUrl && targetUrl !== "#" ? (
@@ -68,13 +80,13 @@ export function PlatformProfileCard({ profile, color = "#6366f1", onRefresh, isR
                 href={targetUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-muted-foreground hover:text-primary hover:underline font-mono truncate transition-colors cursor-pointer"
+                className="text-[11px] sm:text-xs text-muted-foreground hover:text-primary hover:underline font-mono truncate transition-colors cursor-pointer"
                 title={`Open ${profile.platform} profile (@${profile.username})`}
               >
                 @{profile.username}
               </a>
             ) : (
-              <span className="text-xs text-muted-foreground font-mono truncate">@{profile.username}</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-mono truncate">@{profile.username}</span>
             )}
           </div>
 
@@ -84,10 +96,10 @@ export function PlatformProfileCard({ profile, color = "#6366f1", onRefresh, isR
                 href={targetUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-primary hover:underline flex items-center gap-1 p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                className="text-xs text-primary hover:underline flex items-center gap-1 p-1 sm:p-1.5 rounded-lg hover:bg-white/10 transition-colors"
                 title={`Open ${profile.platform} profile`}
               >
-                <ExternalLink className="size-3.5" />
+                <ExternalLink className="size-3 sm:size-3.5" />
               </a>
             )}
             {onRefresh && (
@@ -95,10 +107,10 @@ export function PlatformProfileCard({ profile, color = "#6366f1", onRefresh, isR
                 type="button"
                 onClick={onRefresh}
                 disabled={isRefreshing}
-                className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
+                className="p-1 sm:p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
                 title="Refresh statistics"
               >
-                <RefreshCw className={cn("size-3.5", isRefreshing && "animate-spin text-primary")} />
+                <RefreshCw className={cn("size-3 sm:size-3.5", isRefreshing && "animate-spin text-primary")} />
               </button>
             )}
           </div>
@@ -106,91 +118,91 @@ export function PlatformProfileCard({ profile, color = "#6366f1", onRefresh, isR
 
         {/* Fallback Warning */}
         {isStaleFallback && (
-          <div className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-300">
+          <div className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-2 text-[10px] sm:text-[11px] text-amber-300">
             <AlertTriangle className="size-3.5 shrink-0" />
-            <span>Couldn't refresh latest stats. Showing last successful data.</span>
+            <span>Showing cached stats. Live fetch temporarily delayed.</span>
           </div>
         )}
 
         {/* Main Content: Metrics & Difficulty */}
         {isFailed ? (
-          <div className="p-4 text-center text-xs text-rose-400/90 rounded-2xl border border-rose-500/20 bg-rose-500/5">
+          <div className="p-3 sm:p-4 text-center text-[11px] sm:text-xs text-rose-400/90 rounded-2xl border border-rose-500/20 bg-rose-500/5">
             {profile.errorDetails || "Fetch failed for this platform."}
           </div>
         ) : isGithub ? (
           /* GitHub Specific Card */
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-2xl border border-white/10 bg-background/50 p-2.5">
-              <span className="text-[10px] uppercase font-bold text-muted-foreground block">Repositories</span>
-              <span className="font-black text-base text-foreground tabular-nums">
+            <div className="rounded-2xl border border-white/10 bg-background/50 p-2 sm:p-2.5">
+              <span className="text-[10px] sm:text-[11px] uppercase font-bold text-muted-foreground block truncate">Repositories</span>
+              <span className="font-black text-xs sm:text-base text-foreground tabular-nums">
                 {profile.platformSpecificData?.publicRepos ?? 0}
               </span>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-background/50 p-2.5">
-              <span className="text-[10px] uppercase font-bold text-muted-foreground block">Followers</span>
-              <span className="font-black text-base text-primary tabular-nums">
+            <div className="rounded-2xl border border-white/10 bg-background/50 p-2 sm:p-2.5">
+              <span className="text-[10px] sm:text-[11px] uppercase font-bold text-muted-foreground block truncate">Followers</span>
+              <span className="font-black text-xs sm:text-base text-primary tabular-nums">
                 {profile.platformSpecificData?.followers ?? 0}
               </span>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-background/50 p-2.5">
-              <span className="text-[10px] uppercase font-bold text-muted-foreground block">Public Gists</span>
-              <span className="font-black text-base text-emerald-400 tabular-nums">
+            <div className="rounded-2xl border border-white/10 bg-background/50 p-2 sm:p-2.5">
+              <span className="text-[10px] sm:text-[11px] uppercase font-bold text-muted-foreground block truncate">Public Gists</span>
+              <span className="font-black text-xs sm:text-base text-emerald-400 tabular-nums">
                 {profile.platformSpecificData?.publicGists ?? 0}
               </span>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-background/50 p-2.5">
-              <span className="text-[10px] uppercase font-bold text-muted-foreground block">Following</span>
-              <span className="font-black text-base text-amber-400 tabular-nums">
+            <div className="rounded-2xl border border-white/10 bg-background/50 p-2 sm:p-2.5">
+              <span className="text-[10px] sm:text-[11px] uppercase font-bold text-muted-foreground block truncate">Following</span>
+              <span className="font-black text-xs sm:text-base text-amber-400 tabular-nums">
                 {profile.platformSpecificData?.following ?? 0}
               </span>
             </div>
           </div>
         ) : isLinkedin ? (
-          <div className="p-4 text-center text-xs text-foreground/80 rounded-2xl border border-white/10 bg-background/40 space-y-1">
-            <p className="font-bold text-sky-400 text-sm">LinkedIn Profile Connected</p>
+          <div className="p-3 sm:p-4 text-center text-xs text-foreground/80 rounded-2xl border border-white/10 bg-background/40 space-y-1">
+            <p className="font-bold text-sky-400 text-xs sm:text-sm">LinkedIn Profile Connected</p>
             <a
               href={profile.profileUrl || `https://www.linkedin.com/in/${profile.username}/`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-primary hover:underline inline-flex items-center gap-1 font-semibold"
+              className="text-[11px] sm:text-xs text-primary hover:underline inline-flex items-center gap-1 font-semibold"
             >
               View Professional Profile <ExternalLink className="size-3" />
             </a>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2 text-xs">
               {profile.rating !== null && (
-                <div className="rounded-2xl border border-white/10 bg-background/50 p-2.5">
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Rating</span>
-                  <span className="font-black text-base text-foreground tabular-nums">
+                <div className="rounded-2xl border border-white/10 bg-background/50 p-2 sm:p-2.5">
+                  <span className="text-[10px] sm:text-[11px] uppercase font-bold text-muted-foreground block truncate">Rating</span>
+                  <span className="font-black text-xs sm:text-base text-foreground tabular-nums">
                     {profile.rating}
                   </span>
                 </div>
               )}
 
               {rankOrStar && (
-                <div className="rounded-2xl border border-white/10 bg-background/50 p-2.5">
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Rank / Stars</span>
-                  <span className="font-extrabold text-sm text-amber-400 truncate block">
+                <div className="rounded-2xl border border-white/10 bg-background/50 p-2 sm:p-2.5">
+                  <span className="text-[10px] sm:text-[11px] uppercase font-bold text-muted-foreground block truncate">Rank / Stars</span>
+                  <span className="font-extrabold text-xs sm:text-sm text-amber-400 truncate block">
                     {rankOrStar}
                   </span>
                 </div>
               )}
 
               {profile.totalSolved !== null && (
-                <div className="rounded-2xl border border-white/10 bg-background/50 p-2.5">
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Total Solved</span>
-                  <span className="font-black text-base text-emerald-400 tabular-nums">
+                <div className="rounded-2xl border border-white/10 bg-background/50 p-2 sm:p-2.5">
+                  <span className="text-[10px] sm:text-[11px] uppercase font-bold text-muted-foreground block truncate">Total Solved</span>
+                  <span className="font-black text-xs sm:text-base text-emerald-400 tabular-nums">
                     {profile.totalSolved}
                   </span>
                 </div>
               )}
 
               {profile.contestsParticipated !== null && (
-                <div className="rounded-2xl border border-white/10 bg-background/50 p-2.5">
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Contests</span>
-                  <span className="font-black text-base text-primary tabular-nums">
+                <div className="rounded-2xl border border-white/10 bg-background/50 p-2 sm:p-2.5">
+                  <span className="text-[10px] sm:text-[11px] uppercase font-bold text-muted-foreground block truncate">Contests</span>
+                  <span className="font-black text-xs sm:text-base text-primary tabular-nums">
                     {profile.contestsParticipated}
                   </span>
                 </div>
@@ -210,22 +222,22 @@ export function PlatformProfileCard({ profile, color = "#6366f1", onRefresh, isR
         )}
 
         {/* Footer: Source provenance & Modal Heatmap Popup Trigger */}
-        <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-muted-foreground/70 pt-2 border-t border-white/10">
-          <div className="flex items-center gap-1.5 min-w-0 truncate">
-            <span>Source: {profile.dataSource}</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] sm:text-[11px] text-muted-foreground/70 pt-2 border-t border-white/10">
+          <div className="flex items-center gap-1.5 min-w-0 truncate text-[10px] sm:text-[11px]">
+            <span className="truncate">Source: {profile.dataSource}</span>
             <span>•</span>
-            <span>Updated: {new Date(profile.fetchedAt).toLocaleDateString()}</span>
+            <span className="truncate">{new Date(profile.fetchedAt).toLocaleDateString()}</span>
           </div>
 
-          {/* Activity Heatmap Popup Button */}
-          {!isFailed && !isLinkedin && (
+          {/* Activity Heatmap Popup Button - Only show if platform has actual heatmap or activity data */}
+          {hasHeatmapData && (
             <button
               type="button"
               onClick={() => setShowHeatmapModal(true)}
-              className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-xl border border-white/10 hover:border-primary/40 bg-background/60 hover:bg-primary/10 text-foreground/90 hover:text-primary transition-all shrink-0 shadow-sm ml-auto"
+              className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold px-2.5 py-1.5 rounded-xl border border-white/10 hover:border-primary/40 bg-background/60 hover:bg-primary/10 text-foreground/90 hover:text-primary transition-all shrink-0 shadow-sm ml-auto"
               title={`View ${profile.platform} Activity Heatmap`}
             >
-              <Flame className="size-3.5 text-amber-500" />
+              <Flame className="size-3 sm:size-3.5 text-amber-500 shrink-0" />
               <span>Activity Heatmap</span>
             </button>
           )}

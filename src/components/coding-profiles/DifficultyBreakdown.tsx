@@ -35,18 +35,18 @@ export function DifficultyBreakdown({ easy, medium, hard, total }: DifficultyBre
         <div style={{ width: `${hPct}%` }} className="bg-rose-500 transition-all" title={`Hard: ${h}`} />
       </div>
 
-      <div className="grid grid-cols-3 gap-2 text-center text-xs">
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-2">
-          <span className="text-[10px] font-bold text-emerald-400 block uppercase">Easy</span>
-          <span className="font-extrabold text-sm text-foreground tabular-nums">{easy !== null ? easy : "N/A"}</span>
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-2 text-center text-xs">
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-1.5 sm:p-2">
+          <span className="text-[10px] sm:text-[11px] font-bold text-emerald-400 block uppercase truncate">Easy</span>
+          <span className="font-extrabold text-xs sm:text-sm text-foreground tabular-nums">{easy !== null ? easy : "N/A"}</span>
         </div>
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-2">
-          <span className="text-[10px] font-bold text-amber-400 block uppercase">Medium</span>
-          <span className="font-extrabold text-sm text-foreground tabular-nums">{medium !== null ? medium : "N/A"}</span>
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-1.5 sm:p-2">
+          <span className="text-[10px] sm:text-[11px] font-bold text-amber-400 block uppercase truncate">Medium</span>
+          <span className="font-extrabold text-xs sm:text-sm text-foreground tabular-nums">{medium !== null ? medium : "N/A"}</span>
         </div>
-        <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-2">
-          <span className="text-[10px] font-bold text-rose-400 block uppercase">Hard</span>
-          <span className="font-extrabold text-sm text-foreground tabular-nums">{hard !== null ? hard : "N/A"}</span>
+        <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-1.5 sm:p-2">
+          <span className="text-[10px] sm:text-[11px] font-bold text-rose-400 block uppercase truncate">Hard</span>
+          <span className="font-extrabold text-xs sm:text-sm text-foreground tabular-nums">{hard !== null ? hard : "N/A"}</span>
         </div>
       </div>
     </div>

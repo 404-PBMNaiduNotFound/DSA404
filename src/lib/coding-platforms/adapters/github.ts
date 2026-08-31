@@ -44,12 +44,62 @@ export class GitHubAdapter implements PlatformAdapter {
     }
 
     try {
-      const res = await fetchWithTimeout(`https://api.github.com/users/${cleanUsername}`);
-      if (!res.ok) {
+      // 1. Fetch GitHub user basic profile
+      const userRes = await fetchWithTimeout(`https://api.github.com/users/${cleanUsername}`);
+      if (!userRes.ok) {
         return normalizeProfileData(this.id, cleanUsername, { status: "PROFILE_NOT_FOUND", errorDetails: "GitHub profile not found" });
       }
+      const data = await userRes.json();
 
-      const data = await res.json();
+      // 2. Fetch GitHub contributions calendar (full 1-year daily activity)
+      const calendarMap: Record<string, number> = {};
+      let totalContributions = 0;
+      let streak = 0;
+
+      try {
+        const contribRes = await fetchWithTimeout(`https://github-contributions-api.jogruber.de/v4/${cleanUsername}?y=last`, {}, 3000);
+        if (contribRes.ok) {
+          const contribData = await contribRes.json();
+          if (contribData && Array.isArray(contribData.contributions)) {
+            contribData.contributions.forEach((item: { date: string; count: number }) => {
+              if (item.date && item.count > 0) {
+                calendarMap[item.date] = item.count;
+                totalContributions += item.count;
+              }
+            });
+          }
+        }
+      } catch (cErr) {
+        console.warn("GitHub contribution calendar fetch fallback:", cErr);
+      }
+
+      // 3. Fetch public events as recentSubmissions / supplemental activity
+      const recentSubs: Array<{ timestamp: string; date: string; problemName: string; verdict: string }> = [];
+      try {
+        const eventsRes = await fetchWithTimeout(`https://api.github.com/users/${cleanUsername}/events/public`, {}, 2500);
+        if (eventsRes.ok) {
+          const events = await eventsRes.json();
+          if (Array.isArray(events)) {
+            events.slice(0, 30).forEach((ev: any) => {
+              if (ev.created_at) {
+                const dateKey = ev.created_at.slice(0, 10);
+                calendarMap[dateKey] = (calendarMap[dateKey] || 0) + 1;
+                recentSubs.push({
+                  timestamp: ev.created_at,
+                  date: dateKey,
+                  problemName: `${ev.type ? ev.type.replace(/Event$/, "") : "Activity"} on ${ev.repo?.name || "GitHub"}`,
+                  verdict: "Pushed",
+                });
+              }
+            });
+          }
+        }
+      } catch (eErr) {
+        console.warn("GitHub events fetch fallback:", eErr);
+      }
+
+      const totalSolvedCount = totalContributions > 0 ? totalContributions : Object.values(calendarMap).reduce((a, b) => a + b, 0);
+
       return normalizeProfileData(this.id, cleanUsername, {
         displayName: data.name || cleanUsername,
         profileUrl: `https://github.com/${cleanUsername}`,
@@ -57,8 +107,11 @@ export class GitHubAdapter implements PlatformAdapter {
         country: data.location || null,
         rating: null,
         contestsParticipated: null,
-        totalSolved: null,
+        totalSolved: totalSolvedCount > 0 ? totalSolvedCount : null,
         rank: null,
+        submissionCalendar: Object.keys(calendarMap).length > 0 ? calendarMap : null,
+        recentSubmissions: recentSubs.length > 0 ? recentSubs : null,
+        streak: streak || null,
         status: "SUCCESS",
         dataSource: "Official API",
         platformSpecificData: {
@@ -66,6 +119,7 @@ export class GitHubAdapter implements PlatformAdapter {
           followers: data.followers ?? 0,
           publicGists: data.public_gists ?? 0,
           following: data.following ?? 0,
+          submissionCalendar: Object.keys(calendarMap).length > 0 ? calendarMap : null,
         },
       });
     } catch (err: any) {

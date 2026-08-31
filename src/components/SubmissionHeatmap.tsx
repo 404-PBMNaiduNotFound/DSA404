@@ -144,19 +144,19 @@ export function SubmissionHeatmap({ data, detailMap }: SubmissionHeatmapProps) {
   return (
     <div className="space-y-4">
       {/* ── Submissions Summary & Controls Header ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-3">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Flame className="size-4 text-orange-500 animate-pulse shrink-0" />
-          <span>
-            <strong className="text-foreground text-base tabular-nums">{totalSubmissions}</strong> submissions
-            {selectedYear !== "All" ? ` in ${selectedYear}` : " in overall schedule"}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-border/40 pb-3">
+        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium">
+          <Flame className="size-3.5 sm:size-4 text-orange-500 animate-pulse shrink-0" />
+          <span className="truncate">
+            <strong className="text-foreground text-xs sm:text-base tabular-nums">{totalSubmissions}</strong> submissions
+            {selectedYear !== "All" ? ` in ${selectedYear}` : " total"}
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs">
           {/* Year Filter Dropdown / Pills */}
           <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-0.5 text-xs">
-            <Calendar className="size-3.5 ml-2 text-muted-foreground shrink-0" />
+            <Calendar className="size-3.5 ml-1.5 text-muted-foreground shrink-0" />
             {availableYears.map((yr) => (
               <button
                 key={yr}
@@ -164,7 +164,7 @@ export function SubmissionHeatmap({ data, detailMap }: SubmissionHeatmapProps) {
                   setSelectedYear(yr);
                   setWindowOffset(0);
                 }}
-                className={`rounded-md px-2 py-1 font-medium transition-all ${selectedYear === yr
+                className={`rounded-md px-2 py-0.5 sm:py-1 text-xs font-medium transition-all ${selectedYear === yr
                     ? "bg-background text-foreground shadow-sm font-semibold"
                     : "text-muted-foreground hover:text-foreground"
                   }`}
@@ -179,22 +179,22 @@ export function SubmissionHeatmap({ data, detailMap }: SubmissionHeatmapProps) {
             <Button
               variant="outline"
               size="icon"
-              className="size-7"
+              className="size-7 rounded-lg"
               onClick={() => setWindowOffset((prev) => Math.max(0, prev - 1))}
               disabled={windowOffset <= 0}
               title="Previous months"
             >
-              <ChevronLeft className="size-4" />
+              <ChevronLeft className="size-3.5 sm:size-4" />
             </Button>
             <Button
               variant="outline"
               size="icon"
-              className="size-7"
+              className="size-7 rounded-lg"
               onClick={() => setWindowOffset((prev) => Math.min(maxOffset, prev + 1))}
               disabled={currentWindowEndWeek >= allWeeksData.weeks.length}
               title="Next months"
             >
-              <ChevronRight className="size-4" />
+              <ChevronRight className="size-3.5 sm:size-4" />
             </Button>
           </div>
         </div>

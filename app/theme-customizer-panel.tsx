@@ -24,10 +24,11 @@ const FONT_OPTIONS = [
   { label: "JetBrains Mono", value: "'JetBrains Mono', monospace" },
 ];
 
-const SIZE_OPTIONS = [
+export const SIZE_OPTIONS = [
+  { label: "Auto (12px Mobile / 15px Laptop)", value: "auto" },
   { label: "XS (12px)", value: "12px" },
   { label: "SM (13px)", value: "13px" },
-  { label: "MD (14px — Default)", value: "14px" },
+  { label: "MD (14px)", value: "14px" },
   { label: "LG (15px)", value: "15px" },
   { label: "XL (16px)", value: "16px" },
   { label: "2XL (18px)", value: "18px" },
@@ -91,7 +92,7 @@ export function ThemeCustomizerPanel() {
   const [viewOpen, setViewOpen] = useState(false);
 
   const [selectedFont, setSelectedFont] = useState(FONT_OPTIONS[0].value);
-  const [selectedSize, setSelectedSize] = useState("14px");
+  const [selectedSize, setSelectedSize] = useState("auto");
   const [forceView, setForceView] = useState<ForceView>("auto");
 
   // Load persisted font + size + view on mount
@@ -101,7 +102,9 @@ export function ThemeCustomizerPanel() {
       const s = localStorage.getItem(SIZE_STORAGE_KEY);
       const v = localStorage.getItem(VIEW_STORAGE_KEY) as ForceView | null;
       if (f) { setSelectedFont(f); applyFont(f); }
-      if (s) { setSelectedSize(s); applySize(s); }
+      const initialSize = s || "auto";
+      setSelectedSize(initialSize);
+      applySize(initialSize);
       if (v) { setForceView(v); applyViewMode(v); }
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -125,7 +128,11 @@ export function ThemeCustomizerPanel() {
   }
 
   function applySize(size: string) {
-    document.documentElement.style.fontSize = size;
+    if (!size || size === "auto") {
+      document.documentElement.style.fontSize = "";
+    } else {
+      document.documentElement.style.fontSize = size;
+    }
   }
 
   function applyViewMode(mode: ForceView) {
@@ -148,7 +155,13 @@ export function ThemeCustomizerPanel() {
   function handleSize(size: string) {
     setSelectedSize(size);
     applySize(size);
-    try { localStorage.setItem(SIZE_STORAGE_KEY, size); } catch {}
+    try {
+      if (size === "auto") {
+        localStorage.removeItem(SIZE_STORAGE_KEY);
+      } else {
+        localStorage.setItem(SIZE_STORAGE_KEY, size);
+      }
+    } catch {}
   }
 
   function handleView(mode: ForceView) {
@@ -160,7 +173,7 @@ export function ThemeCustomizerPanel() {
   function handleReset() {
     resetToDefault();
     handleFont(FONT_OPTIONS[0].value);
-    handleSize("14px");
+    handleSize("auto");
     handleView("auto");
   }
 

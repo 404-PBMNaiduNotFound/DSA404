@@ -74,11 +74,18 @@ export function UnifiedProfileDashboard({
       return;
     }
 
-    // Filter to only items that haven't been fetched yet and don't exist in fetchedData
+    // Filter to only items that haven't been successfully fetched yet or are missing calendar data
     const missing = list.filter((item) => {
       const key = `${item.platform}:${item.username}`;
       if (attemptedRef.current.has(key)) return false;
-      if (fetchedData[item.platform]) return false;
+      const existing = fetchedData[item.platform];
+      if (
+        existing &&
+        existing.status === "SUCCESS" &&
+        (existing.submissionCalendar !== undefined || item.platform === "linkedin")
+      ) {
+        return false;
+      }
       return true;
     });
 
@@ -87,16 +94,19 @@ export function UnifiedProfileDashboard({
       return;
     }
 
-    // Mark as attempted immediately to avoid concurrent re-triggers
+    // Mark as attempted to avoid duplicate parallel requests
     missing.forEach((item) => attemptedRef.current.add(`${item.platform}:${item.username}`));
 
     setLoading(true);
-    fetchBatchProfilesApi(missing)
+    fetchBatchProfilesApi(missing, true)
       .then((res) => {
         setFetchedData((prev) => {
           const next = { ...prev, ...res };
           if (typeof window !== "undefined") {
             localStorage.setItem(`dsa_platform_stats_${userId || "default"}`, JSON.stringify(next));
+          }
+          if (userId) {
+            void savePlatformStats(userId, next).catch(console.warn);
           }
           return next;
         });

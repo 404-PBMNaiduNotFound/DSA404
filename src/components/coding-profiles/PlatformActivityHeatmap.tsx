@@ -36,7 +36,7 @@ export function PlatformActivityHeatmap({
       try {
         const d = new Date(ms);
         if (!isNaN(d.getTime())) {
-          return d.toISOString().slice(0, 10);
+          return format(d, "yyyy-MM-dd");
         }
       } catch {}
     }
@@ -44,18 +44,18 @@ export function PlatformActivityHeatmap({
     try {
       const d = new Date(str);
       if (!isNaN(d.getTime())) {
-        return d.toISOString().slice(0, 10);
+        return format(d, "yyyy-MM-dd");
       }
     } catch {}
 
     return null;
   };
 
-  // Build unified date -> count map for the trailing ~168 days (24 weeks) or all activity
-  const { dateCountMap, totalActiveDays, totalSubmissionsCount, daysArray } = useMemo(() => {
+  // Build unified date -> count map for the trailing 24 weeks (~168 days) aligned to Monday
+  const { dateCountMap, totalActiveDays, totalSubmissionsCount, weeks } = useMemo(() => {
     const map = new Map<string, number>();
 
-    // 1. Process submissionCalendar (can be object with unix seconds, ms, or YYYY-MM-DD keys, or JSON string)
+    // 1. Process submissionCalendar
     let rawCalendar = submissionCalendar;
     if (typeof rawCalendar === "string") {
       try {
@@ -88,7 +88,7 @@ export function PlatformActivityHeatmap({
       });
     }
 
-    // 3. Process ratingHistory (contest participation days)
+    // 3. Process ratingHistory
     if (ratingHistory && Array.isArray(ratingHistory)) {
       ratingHistory.forEach((contest) => {
         const val = contest.timestamp || contest.date;
@@ -101,10 +101,10 @@ export function PlatformActivityHeatmap({
       });
     }
 
-    // Trailing 24 weeks (~168 days)
+    // Trailing 24 weeks (~168 days) aligned to Monday
     const today = new Date();
     const startDate = subDays(today, 167);
-    const allDays = eachDayOfInterval({ start: startDate, end: today });
+    const firstMonday = startOfWeek(startDate, { weekStartsOn: 1 });
 
     let activeDays = 0;
     let computedSubmissions = 0;
@@ -116,31 +116,34 @@ export function PlatformActivityHeatmap({
       }
     });
 
-    // If totalSolved is higher, use totalSolved for total display metric
     const displayTotal = totalSolved && totalSolved > computedSubmissions ? totalSolved : computedSubmissions;
+
+    let curr = firstMonday;
+    const weekCols: { dateStr: string; dayIndex: number; month: number; isFuture: boolean }[][] = [];
+
+    while (curr <= today || weekCols.length < 24) {
+      const week: { dateStr: string; dayIndex: number; month: number; isFuture: boolean }[] = [];
+      for (let day = 0; day < 7; day++) {
+        const dateStr = format(curr, "yyyy-MM-dd");
+        week.push({
+          dateStr,
+          dayIndex: day,
+          month: getMonth(curr),
+          isFuture: curr > today,
+        });
+        curr = addDays(curr, 1);
+      }
+      weekCols.push(week);
+      if (weekCols.length >= 26) break;
+    }
 
     return {
       dateCountMap: map,
       totalActiveDays: activeDays,
       totalSubmissionsCount: displayTotal,
-      daysArray: allDays,
+      weeks: weekCols,
     };
   }, [submissionCalendar, recentSubmissions, ratingHistory, totalSolved]);
-
-  // Group into columns of 7 days (weeks)
-  const weeks = useMemo(() => {
-    const w: Date[][] = [];
-    let currentWeek: Date[] = [];
-
-    daysArray.forEach((day, index) => {
-      currentWeek.push(day);
-      if (currentWeek.length === 7 || index === daysArray.length - 1) {
-        w.push(currentWeek);
-        currentWeek = [];
-      }
-    });
-    return w;
-  }, [daysArray]);
 
   const getIntensity = (count: number): number => {
     if (!count || count === 0) return 0;
@@ -169,36 +172,61 @@ export function PlatformActivityHeatmap({
 
       {/* Mini Heatmap Grid */}
       <div className="w-full overflow-x-auto pb-1 pt-1">
-        <div className="flex gap-1 min-w-fit items-center justify-start sm:justify-center">
-          {weeks.map((week, wIdx) => (
-            <div key={wIdx} className="flex flex-col gap-1">
-              {week.map((day) => {
-                const dateKey = format(day, "yyyy-MM-dd");
-                const count = dateCountMap.get(dateKey) || 0;
-                const level = getIntensity(count);
-
-                let bgStyle = "rgba(255, 255, 255, 0.06)";
-                if (level === 1) bgStyle = `${color}40`;
-                if (level === 2) bgStyle = `${color}75`;
-                if (level === 3) bgStyle = `${color}B0`;
-                if (level === 4) bgStyle = color;
+        <div className="flex flex-col gap-1 min-w-fit items-start sm:items-center">
+          {/* Month headers row */}
+          <div className="h-4 flex items-center gap-1 mb-1">
+            {(() => {
+              let lastRenderedWIdx = -10;
+              return weeks.map((week, wIdx) => {
+                const currMonth = week[0]?.month ?? 0;
+                const prevMonth = wIdx > 0 ? (weeks[wIdx - 1]?.[0]?.month ?? -1) : -1;
+                const isNewMonth = (currMonth !== prevMonth || wIdx === 0) && (wIdx - lastRenderedWIdx >= 3);
+                if (isNewMonth) {
+                  lastRenderedWIdx = wIdx;
+                }
 
                 return (
-                  <div
-                    key={dateKey}
-                    onMouseEnter={() => setHoveredDay({ date: dateKey, count })}
-                    onMouseLeave={() => setHoveredDay(null)}
-                    className={cn(
-                      "size-2.5 sm:size-3 rounded-[3px] transition-all cursor-pointer border border-transparent hover:scale-125 hover:border-white/60 hover:z-10",
-                      level === 0 && "hover:bg-white/20"
+                  <div key={wIdx} className="w-2.5 sm:w-3 h-4 shrink-0 relative select-none">
+                    {isNewMonth && (
+                      <span className="absolute left-0 bottom-0 text-[9px] font-mono font-medium text-muted-foreground whitespace-nowrap select-none">
+                        {MONTH_NAMES[currMonth]}
+                      </span>
                     )}
-                    style={{ backgroundColor: bgStyle }}
-                    title={`${count} submissions on ${dateKey}`}
-                  />
+                  </div>
                 );
-              })}
-            </div>
-          ))}
+              });
+            })()}
+          </div>
+
+          {/* Week columns */}
+          <div className="flex gap-1">
+            {weeks.map((week, wIdx) => (
+              <div key={wIdx} className="flex flex-col gap-1 shrink-0">
+                {week.map((day) => {
+                  const count = dateCountMap.get(day.dateStr) || 0;
+                  const level = getIntensity(count);
+
+                  return (
+                    <div
+                      key={day.dateStr}
+                      onMouseEnter={() => setHoveredDay({ date: day.dateStr, count })}
+                      onMouseLeave={() => setHoveredDay(null)}
+                      className={cn(
+                        "size-2.5 sm:size-3 rounded-[3px] transition-all cursor-pointer",
+                        level === 0 && "bg-muted/70 dark:bg-white/10 border border-border/50 dark:border-white/5 hover:bg-muted-foreground/20 hover:border-emerald-500/50",
+                        level === 1 && "bg-emerald-500/30 dark:bg-emerald-600/35 border border-emerald-500/30 hover:scale-125 hover:border-white/60 hover:z-10 shadow-sm",
+                        level === 2 && "bg-emerald-500/55 dark:bg-emerald-500/60 border border-emerald-500/40 hover:scale-125 hover:border-white/60 hover:z-10 shadow-sm",
+                        level === 3 && "bg-emerald-500/80 dark:bg-emerald-500/85 border border-emerald-500/50 hover:scale-125 hover:border-white/60 hover:z-10 shadow-sm",
+                        level === 4 && "bg-emerald-500 dark:bg-emerald-400 border border-emerald-400 hover:scale-125 hover:border-white/60 hover:z-10 shadow-sm",
+                        day.isFuture && "opacity-20 pointer-events-none"
+                      )}
+                      title={`${day.dateStr}: ${count} submission${count === 1 ? "" : "s"}`}
+                    />
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -206,7 +234,18 @@ export function PlatformActivityHeatmap({
       <div className="flex items-center justify-between text-[11px] min-h-[20px] pt-1 border-t border-white/10 text-muted-foreground">
         {hoveredDay ? (
           <span className="font-medium text-foreground truncate animate-fade-in">
-            <strong className="text-primary">{hoveredDay.count}</strong> {hoveredDay.count === 1 ? "submission" : "submissions"} on {hoveredDay.date}
+            <strong className="text-emerald-400">{hoveredDay.count}</strong> {hoveredDay.count === 1 ? "submission" : "submissions"} on {(() => {
+              try {
+                const parts = hoveredDay.date.split("-");
+                if (parts.length === 3) {
+                  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+                  return format(d, "EEE, MMM d, yyyy");
+                }
+                return hoveredDay.date;
+              } catch {
+                return hoveredDay.date;
+              }
+            })()}
           </span>
         ) : (
           <span className="truncate">
@@ -217,11 +256,11 @@ export function PlatformActivityHeatmap({
         {/* Intensity Legend */}
         <div className="flex items-center gap-1 shrink-0">
           <span className="text-[10px]">Less</span>
-          <div className="size-2 rounded-[2px] bg-white/10" />
-          <div className="size-2 rounded-[2px]" style={{ backgroundColor: `${color}40` }} />
-          <div className="size-2 rounded-[2px]" style={{ backgroundColor: `${color}75` }} />
-          <div className="size-2 rounded-[2px]" style={{ backgroundColor: `${color}B0` }} />
-          <div className="size-2 rounded-[2px]" style={{ backgroundColor: color }} />
+          <div className="size-2 rounded-[2px] bg-muted/70 dark:bg-white/10 border border-border/50 dark:border-white/5" />
+          <div className="size-2 rounded-[2px] bg-emerald-500/30 dark:bg-emerald-600/35 border border-emerald-500/30" />
+          <div className="size-2 rounded-[2px] bg-emerald-500/55 dark:bg-emerald-500/60 border border-emerald-500/40" />
+          <div className="size-2 rounded-[2px] bg-emerald-500/80 dark:bg-emerald-500/85 border border-emerald-500/50" />
+          <div className="size-2 rounded-[2px] bg-emerald-500 dark:bg-emerald-400 border border-emerald-400" />
           <span className="text-[10px]">More</span>
         </div>
       </div>
