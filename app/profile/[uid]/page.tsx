@@ -11,10 +11,23 @@ import {
   type CompletedProblemSnapshot,
   type PublicStats,
 } from "@/lib/db";
-import { ExternalLink, Globe, Code2, Flame, Sparkles } from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip as RTooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { ExternalLink, Globe, Code2, Flame, Sparkles, TrendingUp, BarChart3, CheckCircle2 } from "lucide-react";
 import { SubmissionHeatmap } from "@/components/SubmissionHeatmap";
+import { UnifiedProfileDashboard } from "@/components/coding-profiles/UnifiedProfileDashboard";
 import { BadgesGrid } from "@/components/BadgesGrid";
-import { computeBadges, currentStreak } from "@/lib/gamification";
+import { computeBadges, currentStreak, solvedTrend, difficultySplit } from "@/lib/gamification";
 import { CodeModal } from "@/components/CodeModal";
 import { QuoteLoader } from "@/components/QuoteLoader";
 import type { Day } from "@/lib/types";
@@ -57,10 +70,12 @@ export default function PublicProfilePage() {
 
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
+  const [resolvedUid, setResolvedUid] = useState("");
   const [photoURL, setPhotoURL] = useState("");
   const [bannerURL, setBannerURL] = useState("");
   const [bio, setBio] = useState("");
   const [codingProfiles, setCodingProfiles] = useState<CodingProfiles>({});
+  const [platformStats, setPlatformStats] = useState<Record<string, any>>({});
   const [publicStats, setPublicStats] = useState<PublicStats>({
     totalSolved: 0,
     byPlatform: {},
@@ -81,22 +96,24 @@ export default function PublicProfilePage() {
           setNotFound(true);
           return;
         }
+        setResolvedUid(uid);
         return Promise.all([loadUserProfile(uid), loadPublicDays(uid)]).then(([p, loadedDays]) => {
-        if (!p.displayName && !p.bio && !p.photoURL && loadedDays.length === 0) {
-          setNotFound(true);
-          return;
-        }
-        setDisplayName(p.displayName ?? "");
-        setUsername(p.username ?? "");
-        setPhotoURL(p.photoURL ?? "");
-        setBannerURL(p.bannerURL ?? "");
-        setBio(p.bio ?? "");
-        setCodingProfiles(p.codingProfiles ?? {});
-        setPublicStats(
-          p.publicStats ?? { totalSolved: 0, byPlatform: {}, lastUpdated: "" }
-        );
-        setCompletedProblems((p.completedProblems as ExtendedCompletedSnapshot[]) ?? []);
-        setDays(loadedDays);
+          if (!p.displayName && !p.bio && !p.photoURL && loadedDays.length === 0) {
+            setNotFound(true);
+            return;
+          }
+          setDisplayName(p.displayName ?? "");
+          setUsername(p.username ?? "");
+          setPhotoURL(p.photoURL ?? "");
+          setBannerURL(p.bannerURL ?? "");
+          setBio(p.bio ?? "");
+          setCodingProfiles(p.codingProfiles ?? {});
+          if (p.platformStats) setPlatformStats(p.platformStats);
+          setPublicStats(
+            p.publicStats ?? { totalSolved: 0, byPlatform: {}, lastUpdated: "" }
+          );
+          setCompletedProblems((p.completedProblems as ExtendedCompletedSnapshot[]) ?? []);
+          setDays(loadedDays);
         });
       })
       .catch(() => setNotFound(true))
@@ -121,6 +138,10 @@ export default function PublicProfilePage() {
   // Badges & streak calculation from public days
   const badges = useMemo(() => computeBadges(days), [days]);
   const streakCount = useMemo(() => currentStreak(days), [days]);
+
+  // 404 DSA Roadmap Graph data
+  const trend = useMemo(() => solvedTrend(days), [days]);
+  const diffSplit = useMemo(() => difficultySplit(days), [days]);
 
   // Heatmap calculations — grouped by the date each problem was actually
   // marked done (not the day it was originally assigned to), so a backlog
@@ -239,40 +260,27 @@ export default function PublicProfilePage() {
           </div>
         </section>
 
-        {/* ── Coding Profiles ── */}
-        {(Object.entries(codingProfiles).some(([k, v]) => k !== "customLinks" && Boolean(v)) ||
+        {/* ── Unified Coding Profiles & Live Platform Stats Dashboard ── */}
+        {(Object.entries(codingProfiles).some(([k, v]) => k !== "customLinks" && k !== "platformStats" && typeof v === "string" && Boolean(v.trim())) ||
           (codingProfiles.customLinks ?? []).some((cl) => cl.url)) && (
-          <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h2 className="mb-4 font-display text-lg font-semibold">Coding Profiles</h2>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {(Object.keys(CODING_PLATFORM_META) as Array<Exclude<keyof CodingProfiles, "customLinks">>).map((key) => {
-                const url = codingProfiles[key];
-                if (!url) return null;
-                const meta = CODING_PLATFORM_META[key];
-                return (
-                  <a
-                    key={key}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 sm:gap-3 rounded-lg border border-border px-3 py-2.5 transition-colors hover:border-primary/40 min-w-0"
-                    style={{ background: meta.bgColor }}
-                  >
-                    <span className="text-xs font-semibold w-20 sm:w-28 shrink-0 truncate" style={{ color: meta.color }}>
-                      {meta.label}
-                    </span>
-                    <span className="flex items-center gap-1 text-xs text-primary truncate min-w-0">
-                      <ExternalLink className="size-3 shrink-0" />
-                      <span className="truncate">{url.replace(/^https?:\/\/(www\.)?/, "")}</span>
-                    </span>
-                  </a>
-                );
-              })}
+          <section className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Globe className="size-5 text-primary" />
+              <h2 className="font-display text-lg font-bold tracking-tight text-foreground">
+                Coding Profiles & Live Analytics
+              </h2>
             </div>
+            <UnifiedProfileDashboard
+              initialProfiles={codingProfiles as Record<string, string>}
+              initialStats={platformStats}
+              userId={resolvedUid}
+              readOnly={true}
+            />
+
             {/* Custom links */}
             {(codingProfiles.customLinks ?? []).some((cl) => cl.url) && (
-              <div className="mt-3 pt-3 border-t border-border">
-                <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Custom Links</p>
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                <p className="mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Custom Links</p>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {(codingProfiles.customLinks ?? []).map((cl, idx) =>
                     cl.url ? (
@@ -295,6 +303,105 @@ export default function PublicProfilePage() {
                 </div>
               </div>
             )}
+          </section>
+        )}
+
+        {/* ── DSA 404 Solving Trend & Roadmap Progression Graph (from Progress Tab) ── */}
+        {days.length > 0 && (
+          <section className="space-y-6 rounded-3xl border border-border bg-card p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20">
+                  <Sparkles className="size-4" />
+                </div>
+                <div>
+                  <h2 className="font-display text-lg font-bold text-foreground">404 DSA Sheet Progress & Solving Trend</h2>
+                  <p className="text-xs text-muted-foreground">Daily solving consistency & difficulty trajectory</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 font-bold text-primary">
+                  {days.reduce((acc, d) => acc + (d.problems?.filter((p) => p.done).length || 0), 0)} Plan Solved
+                </span>
+                <span className="rounded-full border border-border bg-background px-3 py-1 font-bold text-foreground">
+                  {days.filter((d) => !d.skipped && d.problems.every((p) => p.done)).length} Days Completed
+                </span>
+              </div>
+            </div>
+
+            {/* Solving Trend Area Chart */}
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <TrendingUp className="size-3.5 text-primary" />
+                Daily Solving Activity Trend
+              </h3>
+              <div className="h-64 w-full rounded-2xl border border-border bg-background/50 p-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={trend} margin={{ left: -20, right: 8, top: 8 }}>
+                    <defs>
+                      <linearGradient id="publicSolvedFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.6} />
+                        <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0.05} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.6} />
+                    <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="var(--color-muted-foreground)" />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="var(--color-muted-foreground)" />
+                    <RTooltip
+                      contentStyle={{
+                        background: "var(--color-popover)",
+                        border: "1px solid var(--color-border)",
+                        borderRadius: 12,
+                        color: "var(--color-popover-foreground)",
+                        fontSize: 12,
+                      }}
+                      formatter={(value, name) => {
+                        if (name === "Plan solved") return [`${value} problems`, "Plan Solved"];
+                        return [value, name];
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    <Area
+                      type="monotone"
+                      dataKey="solved"
+                      name="Plan solved"
+                      stroke="var(--color-primary)"
+                      fill="url(#publicSolvedFill)"
+                      strokeWidth={2.5}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Difficulty Split Bar Chart */}
+            <div className="space-y-2 pt-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <BarChart3 className="size-3.5 text-primary" />
+                Difficulty Distribution (Easy / Medium / Hard)
+              </h3>
+              <div className="h-48 w-full rounded-2xl border border-border bg-background/50 p-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={diffSplit} margin={{ left: -20, right: 8, top: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.6} />
+                    <XAxis dataKey="difficulty" tick={{ fontSize: 11 }} stroke="var(--color-muted-foreground)" />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="var(--color-muted-foreground)" />
+                    <RTooltip
+                      contentStyle={{
+                        background: "var(--color-popover)",
+                        border: "1px solid var(--color-border)",
+                        borderRadius: 12,
+                        color: "var(--color-popover-foreground)",
+                        fontSize: 12,
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    <Bar dataKey="done" name="Solved" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="remaining" name="Remaining" fill="rgba(255,255,255,0.12)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </section>
         )}
 
@@ -366,11 +473,10 @@ export default function PublicProfilePage() {
                   <button
                     key={pl}
                     onClick={() => setPlatformFilter(pl)}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                      platformFilter === pl
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${platformFilter === pl
                         ? "border-primary bg-primary/10 text-primary"
                         : "border-border bg-background text-muted-foreground hover:bg-muted"
-                    }`}
+                      }`}
                   >
                     {pl}
                   </button>
@@ -436,7 +542,7 @@ export default function PublicProfilePage() {
                 : undefined
             }
             readOnly={true}
-            onSave={async () => {}}
+            onSave={async () => { }}
           />
         )}
 

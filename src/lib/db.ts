@@ -18,6 +18,7 @@ import type { Day } from "./types";
 import { SCHEMA_VERSION } from "./types";
 import { DEFAULT_DAILY_COUNTS, type DailyCounts, rebalanceRemaining, seedDays, START_DATE } from "./plan";
 import { loadSettings } from "./settings";
+import { getCanonicalProblemLink } from "./problems";
 
 // ---- Firestore layout (mirrors the old Postgres tables) ----
 // users/{uid}                          <- profile doc (was `profiles`)
@@ -101,26 +102,35 @@ const dayToFields = (d: Day, seqIndex: number) => {
 };
 
 
-const fieldsToDay = (data: Record<string, unknown>): Day => ({
-  id: (data.id as string) ?? "",
-  dayNumber: data.dayNumber as number,
-  date: data.date as string,
-  section: (data.section as string) ?? "",
-  topic: (data.topic as string) ?? "",
-  subtopics: (data.subtopics as string[]) ?? [],
-  // No hardcoded TUF metadata is stored in the problem database — read
-  // whatever was saved (normally null; Google search already covers TUF).
-  problems: (data.problems as Day["problems"]) ?? [],
-  checklist: (data.checklist as Day["checklist"]) ?? [],
-  status: data.status as Day["status"],
-  notes: (data.notes as string) ?? "",
-  revisionNotes: (data.revisionNotes as string) ?? "",
-  skipped: Boolean(data.skipped),
-  level: (data.level as string | undefined) ?? undefined,
-  mergeSnapshot: (data.mergeSnapshot as Day["mergeSnapshot"]) ?? undefined,
-  isRevisionDay: (data.isRevisionDay as boolean | undefined) ?? undefined,
-  revisionDayNumbers: (data.revisionDayNumbers as number[] | undefined) ?? undefined,
-});
+const fieldsToDay = (data: Record<string, unknown>): Day => {
+  const rawProblems = (data.problems as Day["problems"]) ?? [];
+  const problems = rawProblems.map((p) => {
+    const canonical = getCanonicalProblemLink(p.name);
+    if (canonical && canonical !== p.link) {
+      return { ...p, link: canonical, linkVerified: true };
+    }
+    return p;
+  });
+
+  return {
+    id: (data.id as string) ?? "",
+    dayNumber: data.dayNumber as number,
+    date: data.date as string,
+    section: (data.section as string) ?? "",
+    topic: (data.topic as string) ?? "",
+    subtopics: (data.subtopics as string[]) ?? [],
+    problems,
+    checklist: (data.checklist as Day["checklist"]) ?? [],
+    status: data.status as Day["status"],
+    notes: (data.notes as string) ?? "",
+    revisionNotes: (data.revisionNotes as string) ?? "",
+    skipped: Boolean(data.skipped),
+    level: (data.level as string | undefined) ?? undefined,
+    mergeSnapshot: (data.mergeSnapshot as Day["mergeSnapshot"]) ?? undefined,
+    isRevisionDay: (data.isRevisionDay as boolean | undefined) ?? undefined,
+    revisionDayNumbers: (data.revisionDayNumbers as number[] | undefined) ?? undefined,
+  };
+};
 
 export interface PlanMeta {
   startDate: string;
@@ -232,6 +242,7 @@ export interface UserProfile {
   username?: string;
   codingProfiles: CodingProfiles;
   publicStats: PublicStats;
+  platformStats?: Record<string, any>;
   completedProblems: CompletedProblemSnapshot[];
 }
 
@@ -264,6 +275,7 @@ export async function loadUserProfile(uid: string): Promise<Partial<UserProfile>
     username: (data.username as string) ?? "",
     codingProfiles: (data.codingProfiles as CodingProfiles) ?? {},
     publicStats: (data.publicStats as PublicStats) ?? { totalSolved: 0, byPlatform: {}, lastUpdated: "" },
+    platformStats: (data.platformStats as Record<string, any>) ?? {},
     completedProblems: (data.completedProblems as CompletedProblemSnapshot[]) ?? [],
   };
 }
@@ -307,6 +319,13 @@ export async function saveUserProfile(uid: string, patch: Partial<UserProfile>) 
     );
   }
   await Promise.all(writes);
+}
+
+/**
+ * Persists cached coding platform statistics on the user document in Firestore.
+ */
+export async function savePlatformStats(uid: string, platformStats: Record<string, any>): Promise<void> {
+  await setDoc(userDoc(uid), { platformStats, statsUpdatedAt: serverTimestamp() }, { merge: true });
 }
 
 /**
@@ -407,7 +426,7 @@ export async function resolveProfileIdentifier(identifier: string): Promise<stri
     );
     if (!usersByName.empty) {
       const match = usersByName.docs[0];
-      setDoc(usernameDoc(asUsername), { uid: match.id, createdAt: serverTimestamp() }).catch(() => {});
+      setDoc(usernameDoc(asUsername), { uid: match.id, createdAt: serverTimestamp() }).catch(() => { });
       return match.id;
     }
   }
@@ -471,7 +490,7 @@ export async function seedPlan(userId: string, startDate?: string, counts?: Dail
   const effectiveStartDate = startDate || today;
 
   let days = seedDays(effectiveStartDate);
-  
+
   // Read user saved counts from settings if counts is omitted
   let effectiveCounts = counts;
   if (!effectiveCounts) {
@@ -675,7 +694,14 @@ export async function loadCodeSubmissions(uid: string): Promise<Record<string, C
   try {
     const snap = await getDoc(problemCompletionsDoc(uid));
     if (!snap.exists()) return {};
-    return (snap.data().submissions as Record<string, CodeSubmission>) ?? {};
+    const submissions = (snap.data().submissions as Record<string, CodeSubmission>) ?? {};
+    for (const [name, sub] of Object.entries(submissions)) {
+      if (!sub.link || !sub.link.trim()) {
+        const canonical = getCanonicalProblemLink(name);
+        if (canonical) sub.link = canonical;
+      }
+    }
+    return submissions;
   } catch (e) {
     console.warn("Failed to fetch code submissions:", e);
     return {};
@@ -695,11 +721,16 @@ export async function saveCodeSubmission(
 ): Promise<void> {
   const next = new Set(currentCompleted);
   next.add(problemName);
+  const effectiveLink = submission.link?.trim() || getCanonicalProblemLink(problemName) || "";
+  const finalSub: CodeSubmission = {
+    ...submission,
+    link: effectiveLink,
+  };
   await setDoc(
     problemCompletionsDoc(uid),
     {
       completed: [...next],
-      submissions: { [problemName]: submission },
+      submissions: { [problemName]: finalSub },
     },
     { merge: true },
   );
@@ -747,4 +778,5 @@ export async function saveBannerBase64(uid: string, dataUrl: string): Promise<vo
     { bannerURL: dataUrl, updatedAt: serverTimestamp() },
     { merge: true },
   );
-}
+}
+

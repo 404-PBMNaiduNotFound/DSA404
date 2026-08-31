@@ -26,7 +26,7 @@ function buildAllProblems(): FlatProblem[] {
   const a2z: FlatProblem[] = SECTIONS.flatMap((sec) =>
     sec.problems.map((p) => {
       const plat = canonicalPlatform(p.p);
-      const link = p.l!; // every core problem now carries a verified link (see master-problems.ts)
+      const link = p.l || "";
       return {
         name: p.n,
         difficulty: p.d,
@@ -44,12 +44,12 @@ function buildAllProblems(): FlatProblem[] {
     platform: p.platform as Platform,
     topic: p.topic,
     sheet: p.sheet as SheetFilter,
-    link: p.link,
+    link: p.link || "",
   }));
 
   const seen = new Set<string>();
   return [...a2z, ...extra].filter((p) => {
-    const key = `${p.name.toLowerCase()}|${p.link}`;
+    const key = `${p.sheet}|${p.name.toLowerCase()}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -57,3 +57,15 @@ function buildAllProblems(): FlatProblem[] {
 }
 
 export const ALL_PROBLEMS = buildAllProblems();
+
+const CANONICAL_MAP = new Map<string, string>();
+ALL_PROBLEMS.forEach((p) => {
+  if (p.link) {
+    CANONICAL_MAP.set(p.name.toLowerCase().trim(), p.link);
+  }
+});
+
+export function getCanonicalProblemLink(name: string): string | undefined {
+  if (!name) return undefined;
+  return CANONICAL_MAP.get(name.toLowerCase().trim());
+}

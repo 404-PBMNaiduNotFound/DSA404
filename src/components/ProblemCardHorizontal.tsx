@@ -32,6 +32,7 @@ import type { Problem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CodeModal } from "@/components/CodeModal";
 import { useProblemCompletions } from "@/hooks/useProblemCompletions";
+import { getCanonicalProblemLink } from "@/lib/problems";
 
 const diffClass: Record<string, string> = {
   Easy: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
@@ -222,16 +223,26 @@ export function ProblemCardHorizontal({
                 <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">Resource Links</DropdownMenuLabel>
                 <DropdownMenuSeparator />
 
-                {problem.link && (
-                  <DropdownMenuItem asChild>
-                    <a href={problem.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-semibold text-primary">
-                      <ExternalLink className="size-3.5 text-primary" />
-                      <ThemedTooltip hint={`view the ${problem.platform} official page for ${problem.name}`}>
-                        <span>{problem.platform} Official Page</span>
-                      </ThemedTooltip>
-                    </a>
-                  </DropdownMenuItem>
-                )}
+                {(() => {
+                  const effectiveLink = getCanonicalProblemLink(problem.name) ?? problem.link;
+                  if (!effectiveLink) return null;
+                  const linkPlatform =
+                    effectiveLink.includes("geeksforgeeks.org") ? "GFG" :
+                      effectiveLink.includes("hackerrank.com") ? "HackerRank" :
+                        effectiveLink.includes("w3schools.com") ? "W3Schools" :
+                          effectiveLink.includes("leetcode.com") ? "LeetCode" :
+                            problem.platform;
+                  return (
+                    <DropdownMenuItem asChild>
+                      <a href={effectiveLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-semibold text-primary">
+                        <ExternalLink className="size-3.5 text-primary" />
+                        <ThemedTooltip hint={`view the ${linkPlatform} official page for ${problem.name}`}>
+                          <span>{linkPlatform} Official Page</span>
+                        </ThemedTooltip>
+                      </a>
+                    </DropdownMenuItem>
+                  );
+                })()}
 
                 <DropdownMenuItem asChild>
                   <a href={youtubeSearchUrl(problem.name)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-foreground">

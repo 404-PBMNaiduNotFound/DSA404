@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Code2, ExternalLink, Trash2, CheckCircle2, Save, Lightbulb } from "lucide-react";
 import type { CodeSubmission } from "@/lib/db";
+import { getCanonicalProblemLink } from "@/lib/problems";
 import { toast } from "sonner";
 
 interface CodeModalProps {
@@ -39,8 +40,9 @@ export function CodeModal({
     if (open) {
       const draftCode = typeof window !== "undefined" ? localStorage.getItem(`draft_code_${problemName}`) : null;
       const draftKeyPoints = typeof window !== "undefined" ? localStorage.getItem(`draft_keypoints_${problemName}`) : null;
+      const canonicalLink = getCanonicalProblemLink(problemName) || "";
       setCode(existingSubmission?.code || draftCode || "");
-      setLink(existingSubmission?.link || "");
+      setLink(existingSubmission?.link || canonicalLink);
       setKeyPoints(existingSubmission?.keyPoints || draftKeyPoints || "");
     }
   }, [open, existingSubmission, problemName]);
@@ -70,7 +72,8 @@ export function CodeModal({
     }
     setBusy(true);
     try {
-      await onSave(code, link, keyPoints);
+      const effectiveLink = link.trim() || getCanonicalProblemLink(problemName) || "";
+      await onSave(code, effectiveLink, keyPoints);
       if (typeof window !== "undefined" && problemName) {
         localStorage.removeItem(`draft_code_${problemName}`);
         localStorage.removeItem(`draft_keypoints_${problemName}`);

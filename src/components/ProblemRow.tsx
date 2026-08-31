@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils";
 
 import { CodeModal } from "@/components/CodeModal";
 import { useProblemCompletions } from "@/hooks/useProblemCompletions";
+import { getCanonicalProblemLink } from "@/lib/problems";
 import { Code2 } from "lucide-react";
 
 const diffClass: Record<string, string> = {
@@ -93,7 +94,8 @@ export function ProblemRow({
   const submission = submissions[problem.name];
 
   const handleSaveCode = async (code: string, link: string, keyPoints: string) => {
-    await submitCode(problem.name, code, link, keyPoints);
+    const effectiveLink = link.trim() || getCanonicalProblemLink(problem.name) || problem.link || "";
+    await submitCode(problem.name, code, effectiveLink, keyPoints);
     setJustDone(true);
     window.setTimeout(() => setJustDone(false), 400);
     onToggle?.(true);
@@ -161,26 +163,26 @@ export function ProblemRow({
         </span>
         <span className="text-xs text-muted-foreground">~{problem.estTime}m</span>
         <div className="flex min-w-0 flex-wrap items-center gap-1">
-          {/* Code button with hover tooltip – only show if solve link present */}
-          {problem.link && (
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              title={problem.done ? "View or edit your submitted code for this problem" : "Add code solution to mark problem as completed"}
-              className={cn(
-                "flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium transition-colors",
-                problem.done
-                  ? "border-primary/50 bg-primary/10 text-primary hover:bg-primary/20"
-                  : "border-border text-muted-foreground hover:border-primary hover:text-primary",
-              )}
-            >
-              <Code2 className="size-3.5" />
-              <span className="text-xs">Code</span>
-            </button>
-          )}
-          {problem.platform === "LeetCode" && !problem.linkVerified ? null : (() => {
-            // Derive the actual platform label from the verified link URL
-            const url = problem.link;
+          {/* Code button with hover tooltip */}
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            title={problem.done ? "View or edit your submitted code for this problem" : "Add code solution to mark problem as completed"}
+            className={cn(
+              "flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium transition-colors",
+              problem.done
+                ? "border-primary/50 bg-primary/10 text-primary hover:bg-primary/20"
+                : "border-border text-muted-foreground hover:border-primary hover:text-primary",
+            )}
+          >
+            <Code2 className="size-3.5" />
+            <span className="text-xs">Code</span>
+          </button>
+          {(() => {
+            // Derive the actual platform label and canonical link
+            const url = getCanonicalProblemLink(problem.name) ?? problem.link;
+            if (!url) return null;
+            if (problem.platform === "LeetCode" && !problem.linkVerified && !getCanonicalProblemLink(problem.name)) return null;
             const linkPlatform =
               url.includes("geeksforgeeks.org") ? "GFG" :
                 url.includes("hackerrank.com") ? "HackerRank" :

@@ -11,7 +11,7 @@ import {
   type CustomLink,
   type CompletedProblemSnapshot,
 } from "@/lib/db";
-import { ALL_PROBLEMS } from "@/lib/problems";
+import { ALL_PROBLEMS, getCanonicalProblemLink } from "@/lib/problems";
 import { SubmissionHeatmap } from "@/components/SubmissionHeatmap";
 import { computeBadges, currentStreak } from "@/lib/gamification";
 import { DayDetail } from "@/components/DayDetail";
@@ -221,12 +221,13 @@ export function MergedTodayProfile() {
         if (p.done && !seen.has(p.name)) {
           seen.add(p.name);
           const sub = submissions[p.name];
+          const platLink = getCanonicalProblemLink(p.name) || p.link || "";
           list.push({
             name: p.name,
             platform: p.platform || "DSA",
             difficulty: p.difficulty || "Medium",
-            link: p.link || "",
-            ...(sub ? { code: sub.code, submissionLink: sub.link, keyPoints: sub.keyPoints } : {}),
+            link: platLink,
+            ...(sub ? { code: sub.code, submissionLink: sub.link || platLink, keyPoints: sub.keyPoints } : {}),
           });
         }
       }
@@ -236,12 +237,13 @@ export function MergedTodayProfile() {
       if (pbCompleted.has(fp.name) && !seen.has(fp.name)) {
         seen.add(fp.name);
         const sub = submissions[fp.name];
+        const platLink = getCanonicalProblemLink(fp.name) || fp.link || "";
         list.push({
           name: fp.name,
           platform: fp.platform || "DSA",
           difficulty: fp.difficulty || "Medium",
-          link: fp.link || "",
-          ...(sub ? { code: sub.code, submissionLink: sub.link } : {}),
+          link: platLink,
+          ...(sub ? { code: sub.code, submissionLink: sub.link || platLink, keyPoints: sub.keyPoints } : {}),
         });
       }
     }
@@ -268,9 +270,10 @@ export function MergedTodayProfile() {
       for (const p of doneProbs) {
         const dateStr = p.completedAt || day.date;
         const sub = submissions[p.name];
+        const platLink = getCanonicalProblemLink(p.name) || p.link || "";
         const item = {
           ...p,
-          submissionLink: sub?.link || (p as any).submissionLink || undefined,
+          submissionLink: sub?.link || (p as any).submissionLink || platLink || undefined,
           code: sub?.code || (p as any).code || undefined,
           keyPoints: sub?.keyPoints || (p as any).keyPoints || undefined,
         };
@@ -284,13 +287,14 @@ export function MergedTodayProfile() {
         const dateStr = sub.submittedAt.slice(0, 10);
         const existing = dateMap.get(dateStr) ?? [];
         if (!existing.some((p) => p.name === probName)) {
+          const platLink = getCanonicalProblemLink(probName) || "";
           dateMap.set(dateStr, [
             ...existing,
             {
               name: probName,
               done: true,
               platform: "Problems Tab",
-              submissionLink: sub.link || undefined,
+              submissionLink: sub.link || platLink || undefined,
               code: sub.code || undefined,
               keyPoints: sub.keyPoints || undefined,
             },

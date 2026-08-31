@@ -19,8 +19,9 @@ import {
   type CustomLink,
   type CompletedProblemSnapshot,
 } from "@/lib/db";
-import { ALL_PROBLEMS } from "@/lib/problems";
+import { ALL_PROBLEMS, getCanonicalProblemLink } from "@/lib/problems";
 import { SubmissionHeatmap } from "@/components/SubmissionHeatmap";
+import { UnifiedProfileDashboard } from "@/components/coding-profiles/UnifiedProfileDashboard";
 import { BadgesGrid } from "@/components/BadgesGrid";
 import { computeBadges, currentStreak } from "@/lib/gamification";
 import { CodeModal } from "@/components/CodeModal";
@@ -63,14 +64,14 @@ const PLATFORMS: {
   color: string;
   bgColor: string;
 }[] = [
-  { key: "leetcode",   label: "LeetCode",      placeholder: "https://leetcode.com/yourname",                    color: "#FFA116", bgColor: "rgba(255,161,22,0.12)" },
-  { key: "codeforces", label: "Codeforces",     placeholder: "https://codeforces.com/profile/yourname",          color: "#1F8ACB", bgColor: "rgba(31,138,203,0.12)" },
-  { key: "codechef",   label: "CodeChef",       placeholder: "https://www.codechef.com/users/yourname",          color: "#5B4638", bgColor: "rgba(91,70,56,0.12)" },
-  { key: "atcoder",    label: "AtCoder",        placeholder: "https://atcoder.jp/users/yourname",                color: "#8BC4E8", bgColor: "rgba(139,196,232,0.12)" },
-  { key: "hackerrank", label: "HackerRank",     placeholder: "https://www.hackerrank.com/profile/yourname",     color: "#00EA64", bgColor: "rgba(0,234,100,0.12)" },
-  { key: "gfg",        label: "GeeksforGeeks",  placeholder: "https://www.geeksforgeeks.org/user/yourname",     color: "#2F8D46", bgColor: "rgba(47,141,70,0.12)" },
-  { key: "github",     label: "GitHub",         placeholder: "https://github.com/yourname",                     color: "#6E7681", bgColor: "rgba(110,118,129,0.12)" },
-];
+    { key: "leetcode", label: "LeetCode", placeholder: "https://leetcode.com/yourname", color: "#FFA116", bgColor: "rgba(255,161,22,0.12)" },
+    { key: "codeforces", label: "Codeforces", placeholder: "https://codeforces.com/profile/yourname", color: "#1F8ACB", bgColor: "rgba(31,138,203,0.12)" },
+    { key: "codechef", label: "CodeChef", placeholder: "https://www.codechef.com/users/yourname", color: "#5B4638", bgColor: "rgba(91,70,56,0.12)" },
+    { key: "atcoder", label: "AtCoder", placeholder: "https://atcoder.jp/users/yourname", color: "#8BC4E8", bgColor: "rgba(139,196,232,0.12)" },
+    { key: "hackerrank", label: "HackerRank", placeholder: "https://www.hackerrank.com/profile/yourname", color: "#00EA64", bgColor: "rgba(0,234,100,0.12)" },
+    { key: "gfg", label: "GeeksforGeeks", placeholder: "https://www.geeksforgeeks.org/user/yourname", color: "#2F8D46", bgColor: "rgba(47,141,70,0.12)" },
+    { key: "github", label: "GitHub", placeholder: "https://github.com/yourname", color: "#6E7681", bgColor: "rgba(110,118,129,0.12)" },
+  ];
 
 // ── Image helpers ────────────────────────────────────────────────────────────
 async function compressImageToDataUrl(file: File, maxPx = 128, quality = 0.5): Promise<string> {
@@ -160,6 +161,7 @@ export function DeveloperProfilePage() {
   const [photoURL, setPhotoURL] = useState("");
   const [bannerURL, setBannerURL] = useState("");
   const [codingProfiles, setCodingProfiles] = useState<CodingProfiles>({});
+  const [platformStats, setPlatformStats] = useState<Record<string, any>>({});
   const [editingProfiles, setEditingProfiles] = useState(false);
   const [draftProfiles, setDraftProfiles] = useState<CodingProfiles>({});
   const [draftCustomLinks, setDraftCustomLinks] = useState<CustomLink[]>([]);
@@ -187,6 +189,7 @@ export function DeveloperProfilePage() {
         setAboutMe(p.aboutMe ?? "");
         setUsername(p.username ?? "");
         setUsernameDraft(p.username ?? "");
+        if (p.platformStats) setPlatformStats(p.platformStats);
         // Auto-fill from the Google account photo the first time there's no
         // avatar saved yet (no Firestore photoURL and nothing cached
         // locally/uploaded above) — never overrides a photo the user chose.
@@ -194,14 +197,14 @@ export function DeveloperProfilePage() {
           setPhotoURL(p.photoURL);
         } else if (!localAvatar && user.photoURL) {
           setPhotoURL(user.photoURL);
-          saveUserProfile(user.uid, { photoURL: user.photoURL }).catch(() => {});
+          saveUserProfile(user.uid, { photoURL: user.photoURL }).catch(() => { });
         }
         if (p.bannerURL) setBannerURL(p.bannerURL);
         setCodingProfiles(p.codingProfiles ?? {});
         setDraftCustomLinks(p.codingProfiles?.customLinks ?? []);
       })
       .finally(() => setLoadingProfile(false));
-  }, [user]);
+  }, [user?.uid]);
 
   // — Live username availability check as the user edits their handle.
   // Idle whenever the draft matches what's already saved — no need to
@@ -279,7 +282,14 @@ export function DeveloperProfilePage() {
         if (p.done && !seen.has(p.name)) {
           seen.add(p.name);
           const sub = submissions[p.name];
-          list.push({ name: p.name, platform: p.platform || "DSA", difficulty: p.difficulty || "Medium", link: p.link || "", ...(sub ? { code: sub.code, submissionLink: sub.link, keyPoints: sub.keyPoints } : {}) });
+          const platLink = getCanonicalProblemLink(p.name) || p.link || "";
+          list.push({
+            name: p.name,
+            platform: p.platform || "DSA",
+            difficulty: p.difficulty || "Medium",
+            link: platLink,
+            ...(sub ? { code: sub.code, submissionLink: sub.link || platLink, keyPoints: sub.keyPoints } : {}),
+          });
         }
       }
     }
@@ -287,7 +297,14 @@ export function DeveloperProfilePage() {
       if (pbCompleted.has(fp.name) && !seen.has(fp.name)) {
         seen.add(fp.name);
         const sub = submissions[fp.name];
-        list.push({ name: fp.name, platform: fp.platform || "DSA", difficulty: fp.difficulty || "Medium", link: fp.link || "", ...(sub ? { code: sub.code, submissionLink: sub.link, keyPoints: sub.keyPoints } : {}) });
+        const platLink = getCanonicalProblemLink(fp.name) || fp.link || "";
+        list.push({
+          name: fp.name,
+          platform: fp.platform || "DSA",
+          difficulty: fp.difficulty || "Medium",
+          link: platLink,
+          ...(sub ? { code: sub.code, submissionLink: sub.link || platLink, keyPoints: sub.keyPoints } : {}),
+        });
       }
     }
     return list;
@@ -306,9 +323,10 @@ export function DeveloperProfilePage() {
       for (const p of doneProbs) {
         const dateStr = p.completedAt || day.date;
         const sub = submissions[p.name];
+        const platLink = getCanonicalProblemLink(p.name) || p.link || "";
         const item = {
           ...p,
-          submissionLink: sub?.link || (p as any).submissionLink || undefined,
+          submissionLink: sub?.link || (p as any).submissionLink || platLink || undefined,
           code: sub?.code || (p as any).code || undefined,
           keyPoints: sub?.keyPoints || (p as any).keyPoints || undefined,
         };
@@ -321,13 +339,14 @@ export function DeveloperProfilePage() {
         const dateStr = sub.submittedAt.slice(0, 10);
         const existing = dateMap.get(dateStr) ?? [];
         if (!existing.some((p) => p.name === probName)) {
+          const platLink = getCanonicalProblemLink(probName) || "";
           dateMap.set(dateStr, [
             ...existing,
             {
               name: probName,
               done: true,
               platform: "Problems Tab",
-              submissionLink: sub.link || undefined,
+              submissionLink: sub.link || platLink || undefined,
               code: sub.code || undefined,
               keyPoints: sub.keyPoints || undefined,
             },
@@ -352,7 +371,7 @@ export function DeveloperProfilePage() {
       const dataUrl = await compressImageToDataUrl(file);
       setPhotoURL(dataUrl);
       if (typeof window !== "undefined" && user?.uid) localStorage.setItem(`local_avatar_url_${user.uid}`, dataUrl);
-      if (user) await saveAvatarBase64(user.uid, dataUrl).catch(() => {});
+      if (user) await saveAvatarBase64(user.uid, dataUrl).catch(() => { });
       toast.success("Profile picture updated!");
     } catch (err) { toast.error("Upload failed", { description: (err as Error).message }); }
     finally { setUploadingAvatar(false); e.target.value = ""; }
@@ -365,7 +384,7 @@ export function DeveloperProfilePage() {
       const dataUrl = await compressBannerToDataUrl(file);
       setBannerURL(dataUrl);
       if (typeof window !== "undefined" && user?.uid) localStorage.setItem(`local_banner_url_${user.uid}`, dataUrl);
-      if (user) await saveBannerBase64(user.uid, dataUrl).catch(() => {});
+      if (user) await saveBannerBase64(user.uid, dataUrl).catch(() => { });
       toast.success("Banner updated!");
     } catch (err) { toast.error("Banner upload failed", { description: (err as Error).message }); }
     finally { setUploadingBanner(false); e.target.value = ""; }
@@ -661,97 +680,18 @@ export function DeveloperProfilePage() {
         </div>
       </section>
 
-      {/* ── Coding Profiles & Handles ── */}
-      <section className="rounded-3xl border border-white/10 bg-card/60 backdrop-blur-xl p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Code2 className="size-5 text-primary" />
-            <h2 className="text-lg font-bold text-foreground">Coding Profiles & Links</h2>
-          </div>
-          {!editingProfiles ? (
-            <Button variant="outline" size="sm" className="gap-2 rounded-xl border-white/10"
-              onClick={() => { setDraftProfiles({ ...codingProfiles }); setDraftCustomLinks(codingProfiles.customLinks ?? []); setEditingProfiles(true); }}>
-              <Pencil className="size-3.5" /> Edit Handles
-            </Button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setEditingProfiles(false)}><X className="size-4" /></Button>
-              <Button size="sm" className="gap-2 rounded-xl" onClick={saveCodingProfiles} disabled={saving}>
-                <Check className="size-4" /> Save Handles
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {editingProfiles ? (
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {PLATFORMS.map((p) => (
-                <div key={p.key} className="space-y-1">
-                  <Label htmlFor={`cp-${p.key}`} style={{ color: p.color }} className="text-xs font-semibold">{p.label}</Label>
-                  <Input id={`cp-${p.key}`} value={draftProfiles[p.key] ?? ""} onChange={(e) => setDraftProfiles((prev) => ({ ...prev, [p.key]: e.target.value }))}
-                    placeholder={p.placeholder} className="bg-background/40 border-white/10 rounded-xl text-sm" />
-                </div>
-              ))}
-            </div>
-            {/* Custom Links */}
-            <div className="pt-3 border-t border-white/10">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-foreground">Custom Links</span>
-                <button type="button" onClick={() => setDraftCustomLinks((prev) => [...prev, { label: "", url: "" }])}
-                  className="flex items-center gap-1 rounded-md border border-dashed border-primary/60 px-2 py-1 text-xs text-primary hover:bg-primary/10 transition-colors">
-                  <Plus className="size-3.5" /> Add link
-                </button>
-              </div>
-              <div className="space-y-2">
-                {draftCustomLinks.map((cl, idx) => (
-                  <div key={idx} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                    <Input value={cl.label} onChange={(e) => setDraftCustomLinks((prev) => { const n = [...prev]; n[idx] = { ...n[idx], label: e.target.value }; return n; })}
-                      placeholder="Label (e.g. Portfolio)" className="w-full sm:w-36 shrink-0 bg-background/40 border-white/10 text-sm" />
-                    <div className="flex items-center gap-2">
-                      <Input value={cl.url} onChange={(e) => setDraftCustomLinks((prev) => { const n = [...prev]; n[idx] = { ...n[idx], url: e.target.value }; return n; })}
-                        placeholder="https://..." className="min-w-0 flex-1 bg-background/40 border-white/10 text-sm" />
-                      <button type="button" onClick={() => setDraftCustomLinks((prev) => prev.filter((_, i) => i !== idx))}
-                        className="shrink-0 rounded-md p-1.5 text-rose-400 hover:bg-rose-500/10 transition-colors">
-                        <Trash2 className="size-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {PLATFORMS.map((p) => {
-              const url = codingProfiles[p.key];
-              return (
-                <div key={p.key} className="flex items-center gap-3 rounded-2xl border border-white/10 p-3 backdrop-blur-md transition-all hover:border-primary/50"
-                  style={{ background: url ? p.bgColor : "rgba(255,255,255,0.02)" }}>
-                  <span className="text-xs font-bold w-24 shrink-0" style={{ color: p.color }}>{p.label}</span>
-                  {url ? (
-                    <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline truncate">
-                      <ExternalLink className="size-3 shrink-0" />
-                      <span className="truncate">{url.replace(/^https?:\/\/(www\.)?/, "")}</span>
-                    </a>
-                  ) : (
-                    <span className="text-xs text-muted-foreground/60 italic">Not linked</span>
-                  )}
-                </div>
-              );
-            })}
-            {(codingProfiles.customLinks ?? []).map((cl, i) => cl.url ? (
-              <div key={i} className="flex items-center gap-3 rounded-2xl border border-white/10 p-3 backdrop-blur-md hover:border-primary/50 transition-all" style={{ background: "rgba(255,255,255,0.03)" }}>
-                <span className="text-xs font-bold w-24 shrink-0 text-primary">{cl.label || "Link"}</span>
-                <a href={cl.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline truncate">
-                  <ExternalLink className="size-3 shrink-0" />
-                  <span className="truncate">{cl.url.replace(/^https?:\/\/(www\.)?/, "")}</span>
-                </a>
-              </div>
-            ) : null)}
-          </div>
-        )}
-      </section>
+      {/* ── Multi-Platform Coding Profile Integration Dashboard ── */}
+      <UnifiedProfileDashboard
+        initialProfiles={codingProfiles as Record<string, string>}
+        initialStats={platformStats}
+        userId={user?.uid}
+        onSaveProfiles={async (updated) => {
+          setCodingProfiles(updated);
+          if (user) {
+            saveUserProfile(user.uid, { codingProfiles: updated }).catch(console.error);
+          }
+        }}
+      />
 
       {/* ── Platform Stats ── */}
       <section className="rounded-3xl border border-white/10 bg-card/60 backdrop-blur-xl p-6 shadow-xl space-y-4">
@@ -842,7 +782,7 @@ export function DeveloperProfilePage() {
         onOpenChange={(open) => !open && setSelectedProblemForModal(null)}
         problemName={selectedProblemForModal ?? ""}
         existingSubmission={selectedProblemForModal ? submissions[selectedProblemForModal] : undefined}
-        onSave={async () => {}}
+        onSave={async () => { }}
         readOnly={true}
       />
     </div>

@@ -143,7 +143,7 @@ function buildAllProblems(): FlatProblem[] {
     sec.problems
       .map((p) => {
         const plat = canonicalPlatform(p.p);
-        const link = p.l!; // every core problem now carries a verified link (see master-problems.ts)
+        const link = p.l || "";
         return {
           id: globalId++,
           name: p.n,
@@ -163,12 +163,12 @@ function buildAllProblems(): FlatProblem[] {
     platform: canonicalPlatform(p.platform),
     topic: p.topic,
     sheet: p.sheet as SheetFilter,
-    link: p.link,
+    link: p.link || "",
   }));
 
   const seen = new Set<string>();
   return [...a2z, ...extra].filter((p) => {
-    const key = `${p.name.toLowerCase()}|${p.link}`;
+    const key = `${p.sheet}|${p.name.toLowerCase()}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -205,7 +205,7 @@ function ProblemItem({
   problem: FlatProblem;
   done: boolean;
   submission?: CodeSubmission;
-  onSaveCode: (code: string, link: string) => Promise<void>;
+  onSaveCode: (code: string, link: string, keyPoints?: string) => Promise<void>;
   onDeleteCode?: () => Promise<void>;
 }) {
   const diff = DIFF_META[problem.difficulty] ?? {
@@ -373,7 +373,7 @@ export default function ProblemsPage() {
 
   // Read URL search params
   const paramPage = parseInt(searchParams.get("page") ?? "", 10);
-  const paramStatus = (searchParams.get("status") as StatusFilter) || "Incomplete";
+  const paramStatus = (searchParams.get("status") as StatusFilter) || "All";
   const paramPlat = (searchParams.get("platform") as Platform) || "All";
   const paramDiff = (searchParams.get("difficulty") as "All" | Difficulty) || "All";
   const paramTopic = searchParams.get("topic") || "All";
@@ -774,7 +774,7 @@ export default function ProblemsPage() {
               problem={p}
               done={completed.has(p.name)}
               submission={submissions[p.name]}
-              onSaveCode={(code, link) => submitCode(p.name, code, link)}
+              onSaveCode={(code, link, keyPoints) => submitCode(p.name, code, link || p.link, keyPoints)}
               onDeleteCode={() => removeCode(p.name)}
             />
           ))}

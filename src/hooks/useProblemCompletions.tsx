@@ -8,6 +8,7 @@ import {
   removeCodeSubmission,
   type CodeSubmission,
 } from "@/lib/db";
+import { getCanonicalProblemLink } from "@/lib/problems";
 
 function getLocalSubmissionsKey(uid: string) {
   return `dsa_code_submissions_${uid}`;
@@ -70,6 +71,12 @@ export function useProblemCompletions() {
       .then(([set, subMap]) => {
         if (!isMounted) return;
         const mergedSubs = { ...localSubs, ...subMap };
+        for (const [probName, subObj] of Object.entries(mergedSubs)) {
+          if (!subObj.link || !subObj.link.trim()) {
+            const canonical = getCanonicalProblemLink(probName);
+            if (canonical) subObj.link = canonical;
+          }
+        }
         const mergedComp = new Set([...Array.from(localComp), ...Array.from(set)]);
         setCompleted(mergedComp);
         setSubmissions(mergedSubs);
@@ -92,9 +99,11 @@ export function useProblemCompletions() {
       if (!user?.uid) return;
       const currentUid = user.uid;
 
+      const effectiveLink = link.trim() || getCanonicalProblemLink(name) || "";
+
       const sub: CodeSubmission = {
         code,
-        link,
+        link: effectiveLink,
         ...(keyPoints ? { keyPoints } : {}),
         submittedAt: new Date().toISOString(),
       };
