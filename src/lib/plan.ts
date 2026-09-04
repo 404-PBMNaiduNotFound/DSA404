@@ -238,24 +238,71 @@ export function seedDays(startDate = START_DATE): Day[] {
  * Re-derive dayNumber + date from array order. Sequence is the source of truth.
  * Ensures Sunday is ALWAYS fixed for Weekly Revision (unless start date is Thu-Sun,
  * in which case the first Sunday has no revision day).
+ *
+ * If `isPaused` is true, all day and problem dates are completely frozen.
+ * If `isPaused` is false, past completed days retain their dates, and open days flow from
+ * the first open day's date.
  */
-export function renumber(days: Day[], startDate = START_DATE, offset = 0): Day[] {
-  const baseDate = addDays(startDate, offset);
+export function renumber(
+  days: Day[],
+  startDate = START_DATE,
+  offset = 0,
+  isPaused = false,
+): Day[] {
+  if (isPaused) {
+    let seq = 0;
+    let skippedSeq = 0;
+    return days.map((d) => {
+      if (d.skipped) {
+        skippedSeq += 1;
+        return { ...d, dayNumber: -skippedSeq };
+      }
+      seq += 1;
+      return { ...d, dayNumber: seq };
+    });
+  }
+
+  const firstOpenIdx = days.findIndex(
+    (d) => !d.skipped && !isDayComplete(d) && d.status !== "merged",
+  );
+
+  if (firstOpenIdx === -1) {
+    let seq = 0;
+    let skippedSeq = 0;
+    return days.map((d) => {
+      if (d.skipped) {
+        skippedSeq += 1;
+        return { ...d, dayNumber: -skippedSeq };
+      }
+      seq += 1;
+      return { ...d, dayNumber: seq };
+    });
+  }
+
+  const baseDate =
+    firstOpenIdx > 0 && days[firstOpenIdx].date
+      ? days[firstOpenIdx].date
+      : addDays(startDate, offset);
+
   const startDow = new Date(`${baseDate}T00:00:00Z`).getUTCDay();
   const isThuToSun = startDow === 4 || startDow === 5 || startDow === 6 || startDow === 0;
 
   let seq = 0;
   let skippedSeq = 0;
   let calOffset = 0;
-  let firstSundayHandled = false;
+  let firstSundayHandled = firstOpenIdx > 0;
 
-  return days.map((d) => {
+  return days.map((d, idx) => {
     if (d.skipped) {
       skippedSeq += 1;
       return { ...d, dayNumber: -skippedSeq };
     }
 
     seq += 1;
+
+    if (idx < firstOpenIdx) {
+      return { ...d, dayNumber: seq };
+    }
 
     while (true) {
       const calDate = addDays(baseDate, calOffset);
@@ -490,6 +537,7 @@ export function setSkipped(
   dayNumbers: number | number[],
   skipped: boolean,
   startDate = START_DATE,
+  isPaused = false,
 ): Day[] {
   const set = new Set(Array.isArray(dayNumbers) ? dayNumbers : [dayNumbers]);
   if (set.size === 0) return days;
@@ -500,7 +548,7 @@ export function setSkipped(
       : d,
   );
 
-  return renumber(result, startDate);
+  return renumber(result, startDate, 0, isPaused);
 }
 
 /**
@@ -514,6 +562,7 @@ export function setSkippedById(
   ids: string | string[],
   skipped: boolean,
   startDate = START_DATE,
+  isPaused = false,
 ): Day[] {
   const idSet = new Set(Array.isArray(ids) ? ids : [ids]);
   if (idSet.size === 0) return days;
@@ -524,22 +573,50 @@ export function setSkippedById(
       : d,
   );
 
-  return renumber(result, startDate);
+  return renumber(result, startDate, 0, isPaused);
 }
-
-
 
 export interface PauseWindow {
   from: string;
   to: string;
 }
 
-/** Shift the calendar (not the sequence) of every day from `fromDayNumber` on. */
+/** Shift the calendar (not the sequence) of every active day from `fromDayNumber` on. */
 export const shiftFrom = (days: Day[], fromDayNumber: number, byDays: number): Day[] =>
-  days.map((d) => (d.dayNumber >= fromDayNumber ? { ...d, date: addDays(d.date, byDays) } : d));
+  days.map((d) =>
+    d.dayNumber >= fromDayNumber && !d.skipped ? { ...d, date: addDays(d.date, byDays) } : d,
+  );
 
 export const isWithinPause = (iso: string, pause: PauseWindow | null) =>
   Boolean(pause && iso >= pause.from && iso < pause.to);
+
+/**
+ * Resumes a plan from where it was left off:
+ * Finds the first active, unfinished day on or after `fromDate` (fallback to any active on/after fromDate),
+ * and shifts that day and all subsequent days forward so that it resumes on `resumeDate` (default today).
+ */
+export function resumePlan(
+  days: Day[],
+  fromDate: string,
+  resumeDate = todayIso(),
+): { days: Day[]; gap: number; finishDate: string } {
+  const first =
+    days.find((d) => !d.skipped && !isDayComplete(d) && d.date >= fromDate) ??
+    days.find((d) => !d.skipped && d.date >= fromDate);
+
+  if (!first) {
+    return { days, gap: 0, finishDate: days[days.length - 1]?.date ?? resumeDate };
+  }
+
+  const gap = Math.max(0, diffDays(first.date, resumeDate));
+  if (gap === 0) {
+    return { days, gap: 0, finishDate: days[days.length - 1]?.date ?? first.date };
+  }
+
+  const shifted = shiftFrom(days, first.dayNumber, gap);
+  const finishDate = shifted[shifted.length - 1]?.date ?? resumeDate;
+  return { days: shifted, gap, finishDate };
+}
 
 /* ------------------------------------------------------------------ */
 /* Per-difficulty daily problem allocation for Topics view             */

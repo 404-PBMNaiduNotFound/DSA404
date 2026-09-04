@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { format, subDays, eachDayOfInterval } from "date-fns";
+import { format, subDays, startOfWeek, addDays, getMonth } from "date-fns";
 import { Flame, Calendar, Sparkles, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 interface PlatformActivityHeatmapProps {
   submissionCalendar?: Record<string, number> | string | null;

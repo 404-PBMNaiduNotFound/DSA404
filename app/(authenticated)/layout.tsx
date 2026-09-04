@@ -69,7 +69,7 @@ function PlanBoundary({
   children: React.ReactNode
 }) {
   const router = useRouter()
-  const { settings, update: updateSettings } = useSettings()
+  const { settings, update: updateSettings, loading: settingsLoading } = useSettings()
   const [checkingPlan, setCheckingPlan] = useState(true)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [planReady, setPlanReady] = useState(false)
@@ -99,7 +99,7 @@ function PlanBoundary({
     router.push('/today')
   }
 
-  if (checkingPlan) {
+  if (checkingPlan || settingsLoading) {
     return <QuoteLoader fullScreen />
   }
 

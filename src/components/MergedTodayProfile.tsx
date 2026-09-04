@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlan } from "@/hooks/usePlan";
+import { useSettings } from "@/hooks/useSettings";
 import { useProblemCompletions } from "@/hooks/useProblemCompletions";
 import {
   loadOwnerProfile,
@@ -135,6 +136,7 @@ function ThemedTooltip({ hint, children }: { hint: string; children: React.React
 export function MergedTodayProfile() {
   const { user } = useAuth();
   const { days, loading } = usePlan();
+  const { settings } = useSettings();
   const { completed: pbCompleted, submissions } = useProblemCompletions();
 
   // Selected date from calendar click
@@ -158,7 +160,8 @@ export function MergedTodayProfile() {
   }, [user]);
 
   // Today's Day selection logic
-  const iso = todayIso();
+  // When paused, freeze the reference date to pausedFrom so Today's workspace doesn't advance forward in problems
+  const iso = settings.paused && settings.pausedFrom ? settings.pausedFrom : todayIso();
   const todayDay = days.find((d) => d.date === iso && !d.skipped);
   // When today's plan is deleted, the day that shifts forward fills its slot
   // and fully replaces it as "today" — restoring the deleted day now happens

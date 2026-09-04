@@ -280,27 +280,31 @@ export default function SettingsPage() {
 
   async function pause() {
     const from = todayIso();
-    await update({ paused: true, pausedFrom: from, pausedDays: 0 });
+    await update({ paused: true, pausedFrom: from });
     toast.info("Preparation paused", {
-      description: "Your schedule stops sliding when you resume. Missed-week checks are off.",
+      description: "Your schedule and problem dates are frozen. Missed-week checks are off.",
     });
   }
 
   async function resume() {
+    toast.info("Resuming preparation", {
+      description: "Resuming your schedule where you left off. Please wait a moment...",
+    });
     const from = settings.pausedFrom ?? todayIso();
-    const gap = Math.max(0, diffDays(from, todayIso()));
-    const finish = gap > 0 ? await shiftSchedule(from, gap) : days[days.length - 1]?.date;
+    const today = todayIso();
+    const finish = await shiftSchedule(from);
+    const gap = Math.max(0, diffDays(from, today));
     await update({
       paused: false,
       pausedFrom: null,
-      pausedDays: settings.pausedDays + gap,
-      resumeDate: todayIso(),
+      pausedDays: (settings.pausedDays ?? 0) + gap,
+      resumeDate: today,
     });
     toast.success("Welcome back", {
       description:
         gap > 0
-          ? `Everything shifted forward by ${gap} day(s). New finish date ${formatDate(finish ?? "")}.`
-          : "Nothing to shift — you resumed the same day.",
+          ? `Preparation resumed from today! Schedule shifted forward by ${gap} day(s). New finish date ${formatDate(finish ?? "")}.`
+          : "Preparation resumed right on schedule.",
     });
   }
 

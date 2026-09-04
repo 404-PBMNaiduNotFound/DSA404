@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { usePlan } from "@/hooks/usePlan";
+import { useSettings } from "@/hooks/useSettings";
 import { todayIso } from "@/lib/plan";
 import { DayDetail } from "@/components/DayDetail";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,6 +12,7 @@ export default function DayPage() {
   const params = useParams();
   const dayNumber = params.dayNumber as string;
   const { days, loading } = usePlan();
+  const { settings } = useSettings();
   const day = days.find((d) => d.dayNumber === Number(dayNumber));
 
   if (loading) return <Skeleton className="h-64 w-full" />;
@@ -24,7 +26,7 @@ export default function DayPage() {
       </div>
     );
 
-  const iso = todayIso();
+  const iso = settings.paused && settings.pausedFrom ? settings.pausedFrom : todayIso();
   const isToday = day.date === iso;
   // Past day (backlog): fully interactive so student can complete missed problems,
   // but scheduling actions (postpone/delete/merge) are hidden since the date already passed.

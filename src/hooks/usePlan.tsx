@@ -46,13 +46,14 @@ interface PlanCtx {
   insertRevisionDay: (afterDayNumber: number) => Promise<void>;
   /** Upgrade 5: redistribute all unfinished problems at a new daily pace. */
   rebalance: (counts: DailyCounts) => Promise<{ before: number; after: number; finish: string }>;
-  /** Upgrade 5: push every upcoming day forward by `days` calendar days. */
-  shiftSchedule: (fromDate: string, days: number) => Promise<string>;
+  /** Upgrade 5: push every upcoming day forward by `days` calendar days. If days is omitted, calculates gap to today. */
+  shiftSchedule: (fromDate: string, days?: number) => Promise<string>;
   /** Pull the first undone problem from the next active day into today, keeping both days' counts balanced. */
   borrowFromNext: (dayNumber: number) => Promise<void>;
   /** Restores a day — unmerges merged topics, un-skips skipped days, or resets status/problems back to pending. */
   restoreDay: (dayNumber: number) => Promise<void>;
   userId: string | null;
+  paused: boolean;
 }
 
 const Ctx = createContext<PlanCtx | null>(null);
@@ -128,7 +129,7 @@ export function PlanProvider({
   const commitSequence = useCallback(
     async (next: Day[], eventKind?: string, detail?: string) => {
       // Preserve any calendar shift already applied by postpone / pause.
-      const sequenced = renumber(next, startDate, planOffset(days, startDate));
+      const sequenced = renumber(next, startDate, planOffset(days, startDate), paused);
       setDays(sequenced);
       try {
         await db.saveSequence(userId, sequenced);
@@ -138,7 +139,7 @@ export function PlanProvider({
         fail(e);
       }
     },
-    [userId, startDate, days, load],
+    [userId, startDate, days, paused, load],
   );
 
   const postpone = useCallback(
@@ -325,7 +326,7 @@ export function PlanProvider({
     async (dayNumber: number, _mode: "shrink" | "placeholder" = "shrink") => {
       const day = days.find((d) => d.dayNumber === dayNumber);
       if (!day) return;
-      const next = setSkippedById(days, day.id, true, startDate);
+      const next = setSkippedById(days, day.id, true, startDate, paused);
       await commitSequence(
         next,
         "delete_day",
@@ -335,7 +336,7 @@ export function PlanProvider({
         description: "Schedule shifted forward. Want it back? Go to the Topic section and unskip it.",
       });
     },
-    [days, startDate, commitSequence],
+    [days, startDate, paused, commitSequence],
   );
 
   const skipTopic = useCallback(
@@ -344,7 +345,7 @@ export function PlanProvider({
       // uniquely identifies it — find it as normal, then act on it by id.
       const day = days.find((d) => d.dayNumber === dayNumber);
       if (!day) return;
-      const next = setSkippedById(days, day.id, skip, startDate);
+      const next = setSkippedById(days, day.id, skip, startDate, paused);
       await commitSequence(
         next,
         skip ? "skip_topic" : "unskip_topic",
@@ -356,21 +357,21 @@ export function PlanProvider({
           : "It's back, with every problem restored exactly as it was.",
       });
     },
-    [days, startDate, commitSequence],
+    [days, startDate, paused, commitSequence],
   );
 
   const skipDay = useCallback(
     async (dayNumber: number) => {
       const day = days.find((d) => d.dayNumber === dayNumber);
       if (!day) return;
-      const next = setSkipped(days, dayNumber, true, startDate);
+      const next = setSkipped(days, dayNumber, true, startDate, paused);
       await commitSequence(next, "skip_day", `Day ${dayNumber} ("${day.topic}") skipped`);
       toast.info(`Day ${dayNumber} skipped`, {
         description:
           "Every later day shifted forward to fill the gap. Find it under Topics → Skipped to bring it back.",
       });
     },
-    [days, startDate, commitSequence],
+    [days, startDate, paused, commitSequence],
   );
 
   const skipSection = useCallback(
@@ -389,7 +390,7 @@ export function PlanProvider({
         return;
       }
 
-      const next = setSkipped(days, sectionDayNumbers, skip, startDate);
+      const next = setSkipped(days, sectionDayNumbers, skip, startDate, paused);
       await commitSequence(
         next,
         skip ? "skip_section" : "unskip_section",
@@ -401,7 +402,7 @@ export function PlanProvider({
           : `"${section}" is back, with every problem restored exactly as it was.`,
       });
     },
-    [days, startDate, commitSequence],
+    [days, startDate, paused, commitSequence],
   );
 
   const resetAll = useCallback(async () => {
@@ -521,20 +522,27 @@ export function PlanProvider({
     [days, startDate, userId],
   );
 
-  /** Upgrade 5c: pause / resume simply slides the calendar, never the sequence. */
+  /** Pause / resume simply slides the calendar, never the sequence. */
   const shiftSchedule = useCallback(
-    async (fromDate: string, byDays: number) => {
-      const first = days.find((d) => d.date >= fromDate);
-      if (!first || byDays === 0) return days[days.length - 1]?.date ?? fromDate;
-      const next = shiftFrom(days, first.dayNumber, byDays);
+    async (fromDate: string, byDays?: number) => {
+      const today = todayIso();
+      const first =
+        days.find((d) => !d.skipped && !isDayComplete(d) && d.date >= fromDate) ??
+        days.find((d) => !d.skipped && d.date >= fromDate);
+      if (!first) return days[days.length - 1]?.date ?? fromDate;
+
+      const gap = byDays !== undefined ? byDays : Math.max(0, diffDays(first.date, today));
+      if (gap === 0) return days[days.length - 1]?.date ?? first.date;
+
+      const next = shiftFrom(days, first.dayNumber, gap);
       setDays(next);
-      const finish = next[next.length - 1].date;
+      const finish = next[next.length - 1]?.date ?? today;
       try {
         await db.saveSequence(userId, next);
         await db.logEvent(
           userId,
-          byDays > 0 ? "pause" : "resume",
-          `Schedule shifted by ${byDays} day(s) from ${fromDate} — new finish date ${finish}`,
+          "resume",
+          `Schedule shifted by ${gap} day(s) from ${first.date} — new finish date ${finish}`,
         );
         markSynced();
       } catch (e) {
@@ -653,6 +661,7 @@ export function PlanProvider({
       borrowFromNext,
       restoreDay,
       userId,
+      paused,
     }),
     [
       days,
@@ -678,6 +687,7 @@ export function PlanProvider({
       borrowFromNext,
       restoreDay,
       userId,
+      paused,
     ],
   );
 
