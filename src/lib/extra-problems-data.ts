@@ -15,14 +15,14 @@ export type Sheet = "Practice 404 Sheet";
 export interface ExtraProblem {
   name: string;
   difficulty: Difficulty;
-  platform: "LeetCode" | "GFG" | "HackerRank" | "CodeStudio";
+  platform: "LeetCode" | "GeeksforGeeks" | "GFG" | "HackerRank" | "CodeStudio";
   link: string;
   sheet: Sheet;
   topic: string;
 }
 
 const canonicalPlatform = (p: string): ExtraProblem["platform"] => {
-  if (p === "GeeksforGeeks" || p === "GFG") return "GFG";
+  if (p === "GeeksforGeeks" || p === "GFG") return "GeeksforGeeks";
   if (p === "HackerRank") return "HackerRank";
   if (p === "CodeStudio") return "CodeStudio";
   return "LeetCode";

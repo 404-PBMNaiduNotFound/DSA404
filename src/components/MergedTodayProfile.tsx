@@ -225,9 +225,11 @@ export function MergedTodayProfile() {
           seen.add(p.name);
           const sub = submissions[p.name];
           const platLink = getCanonicalProblemLink(p.name) || p.link || "";
+          const rawPlat = p.platform || "DSA";
+          const normPlat = (rawPlat === "GFG" || rawPlat.toLowerCase().includes("geeks")) ? "GeeksforGeeks" : rawPlat;
           list.push({
             name: p.name,
-            platform: p.platform || "DSA",
+            platform: normPlat,
             difficulty: p.difficulty || "Medium",
             link: platLink,
             ...(sub ? { code: sub.code, submissionLink: sub.link || platLink, keyPoints: sub.keyPoints } : {}),
@@ -241,9 +243,11 @@ export function MergedTodayProfile() {
         seen.add(fp.name);
         const sub = submissions[fp.name];
         const platLink = getCanonicalProblemLink(fp.name) || fp.link || "";
+        const rawPlat = fp.platform || "DSA";
+        const normPlat = (rawPlat === "GFG" || rawPlat.toLowerCase().includes("geeks")) ? "GeeksforGeeks" : rawPlat;
         list.push({
           name: fp.name,
-          platform: fp.platform || "DSA",
+          platform: normPlat,
           difficulty: fp.difficulty || "Medium",
           link: platLink,
           ...(sub ? { code: sub.code, submissionLink: sub.link || platLink, keyPoints: sub.keyPoints } : {}),
@@ -257,7 +261,8 @@ export function MergedTodayProfile() {
   const stats = useMemo(() => {
     const byPlatform: Record<string, number> = {};
     for (const p of completedProblems) {
-      byPlatform[p.platform] = (byPlatform[p.platform] ?? 0) + 1;
+      const plat = (p.platform === "GFG" || p.platform?.toLowerCase().includes("geeks")) ? "GeeksforGeeks" : (p.platform || "DSA");
+      byPlatform[plat] = (byPlatform[plat] ?? 0) + 1;
     }
     return { total: completedProblems.length, byPlatform };
   }, [completedProblems]);

@@ -28,6 +28,7 @@ import {
   Zap,
   Bot,
   Laptop,
+  Globe,
 } from "lucide-react";
 import { InstallApkSection } from "@/components/InstallApkSection";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
@@ -119,12 +120,11 @@ function useLiveUserCount() {
 ═══════════════════════════════════════════════════════════ */
 function StatsBar() {
   const liveUserCount = useLiveUserCount();
-  const c474 = useCountUp(REAL_TOTAL_PROBLEMS);
-  const c586 = useCountUp(REAL_PRACTICE_PROBLEMS_COUNT);
+  const COMBINED_TOTAL_PROBLEMS = REAL_TOTAL_PROBLEMS + REAL_PRACTICE_PROBLEMS_COUNT;
+  const cTotal = useCountUp(COMBINED_TOTAL_PROBLEMS);
   const cPatterns = useCountUp(REAL_PATTERNS_COUNT);
   const cUsers = useCountUp(liveUserCount ?? 0);
-  const c5 = useCountUp(2);
-  const c4 = useCountUp(4);
+  const cIntegrations = useCountUp(3);
 
   const stats = [
     ...(liveUserCount !== null
@@ -135,6 +135,8 @@ function StatsBar() {
           label: "Learners tracking progress",
           sub: "Live count, synced from database",
           prefix: "",
+          tag: "LIVE_SYNC",
+          tagColor: "text-rose-500 bg-rose-500/10 border-rose-500/30",
           icon: Users,
           iconColor: "text-rose-600 dark:text-rose-400",
           iconBg: "bg-rose-500/10",
@@ -142,24 +144,28 @@ function StatsBar() {
       ]
       : []),
     {
-      ref: c474,
-      value: REAL_TOTAL_PROBLEMS,
-      label: "Core 404 Roadmap",
-      sub: "Daily problems covering all key patterns",
+      ref: cTotal,
+      value: COMBINED_TOTAL_PROBLEMS,
+      label: "Curated Sheets & CP Rounds",
+      sub: `${REAL_TOTAL_PROBLEMS} Core 404 · ${REAL_PRACTICE_PROBLEMS_COUNT} Practice Sheet · CP rounds`,
       prefix: "",
-      icon: Code2,
-      iconColor: "text-blue-600 dark:text-blue-400",
-      iconBg: "bg-blue-500/10",
+      tag: "TOP_TIER",
+      tagColor: "text-amber-500 bg-amber-500/10 border-amber-500/30",
+      icon: Trophy,
+      iconColor: "text-amber-600 dark:text-amber-400",
+      iconBg: "bg-amber-500/10",
     },
     {
-      ref: c586,
-      value: REAL_PRACTICE_PROBLEMS_COUNT,
-      label: "Practice 404 Sheet",
-      sub: "Alt practice problems for Core 404",
+      ref: undefined,
+      value: "1-Click",
+      label: "Public Profile Showcase",
+      sub: "Shareable /profile/[username] portfolio with all platform stats & solved code",
       prefix: "",
-      icon: BarChart3,
-      iconColor: "text-cyan-600 dark:text-cyan-400",
-      iconBg: "bg-cyan-500/10",
+      tag: "PORTFOLIO",
+      tagColor: "text-blue-500 bg-blue-500/10 border-blue-500/30",
+      icon: Globe,
+      iconColor: "text-blue-600 dark:text-blue-400",
+      iconBg: "bg-blue-500/10",
     },
     {
       ref: cPatterns,
@@ -167,26 +173,32 @@ function StatsBar() {
       label: `Patterns & ${REAL_SECTIONS_COUNT} Sections`,
       sub: `${REAL_PATTERNS_COUNT} Key Patterns (Arrays to Graphs & DP)`,
       prefix: "",
+      tag: `${REAL_PATTERNS_COUNT}_PATTERNS`,
+      tagColor: "text-purple-500 bg-purple-500/10 border-purple-500/30",
       icon: LayoutGrid,
       iconColor: "text-purple-600 dark:text-purple-400",
       iconBg: "bg-purple-500/10",
     },
     {
-      ref: c5,
-      value: 2,
-      label: "Curated sheets + contests",
-      sub: "Core 404 · Practice 404 Sheet · CP rounds",
+      ref: undefined,
+      value: "6+ Platforms",
+      label: "Unified Coding Hub",
+      sub: "LeetCode · Codeforces · GFG · GitHub · HackerRank synced",
       prefix: "",
-      icon: Trophy,
-      iconColor: "text-amber-600 dark:text-amber-400",
-      iconBg: "bg-amber-500/10",
+      tag: "SYNC_HUB",
+      tagColor: "text-cyan-500 bg-cyan-500/10 border-cyan-500/30",
+      icon: Code2,
+      iconColor: "text-cyan-600 dark:text-cyan-400",
+      iconBg: "bg-cyan-500/10",
     },
     {
-      ref: c4,
+      ref: cIntegrations,
       value: 3,
       label: "Built-in Integrations",
       sub: "YouTube · ChatGPT(Solve) · Google",
       prefix: "",
+      tag: "AI_PLUGINS",
+      tagColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/30",
       icon: Sparkles,
       iconColor: "text-green-600 dark:text-green-400",
       iconBg: "bg-green-500/10",
@@ -197,15 +209,6 @@ function StatsBar() {
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full">
       {stats.map((s, idx) => {
         const Icon = s.icon;
-        const tagLabels = ["LIVE_SYNC", "O(N)_PATH", "// ALT_SET", `${REAL_PATTERNS_COUNT}_PATTERNS`, "TOP_TIER", "AI_PLUGINS"];
-        const tagColors = [
-          "text-rose-500 bg-rose-500/10 border-rose-500/30",
-          "text-blue-500 bg-blue-500/10 border-blue-500/30",
-          "text-cyan-500 bg-cyan-500/10 border-cyan-500/30",
-          "text-purple-500 bg-purple-500/10 border-purple-500/30",
-          "text-amber-500 bg-amber-500/10 border-amber-500/30",
-          "text-emerald-500 bg-emerald-500/10 border-emerald-500/30",
-        ];
 
         return (
           <div
@@ -223,15 +226,15 @@ function StatsBar() {
               {/* Animated Coding Tag Badge */}
               <div className="flex items-center gap-1">
                 {idx === 0 && <span className="size-2 rounded-full bg-rose-500 animate-ping" />}
-                <span className={`font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${tagColors[idx % tagColors.length]}`}>
-                  {tagLabels[idx % tagLabels.length]}
+                <span className={`font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${s.tagColor}`}>
+                  {s.tag}
                 </span>
               </div>
             </div>
 
             <p className="font-mono text-2xl font-black text-foreground tabular-nums leading-none tracking-tight group-hover:text-primary transition-colors">
               {s.prefix}
-              <span ref={s.ref}>{s.value}</span>
+              {s.ref ? <span ref={s.ref}>{s.value}</span> : <span>{s.value}</span>}
             </p>
             <p className="mt-1 text-xs font-semibold text-foreground truncate">{s.label}</p>
             <p className="mt-0.5 text-[11px] text-muted-foreground line-clamp-2 leading-tight">{s.sub}</p>

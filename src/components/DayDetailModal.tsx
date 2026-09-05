@@ -64,7 +64,7 @@ export function DayDetailModal({ date, problems, onClose }: DayDetailModalProps)
                       <span className="font-bold text-xs text-foreground">{p.name ?? "Problem"}</span>
                       {p.platform && (
                         <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground shrink-0">
-                          {p.platform}
+                          {p.platform === "GFG" ? "GeeksforGeeks" : p.platform}
                         </span>
                       )}
                     </div>

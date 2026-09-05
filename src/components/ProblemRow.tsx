@@ -149,7 +149,7 @@ export function ProblemRow({
           </Badge>
         )}
         <span className="flex items-center gap-1 text-xs text-muted-foreground">
-          {problem.platform}
+          {problem.platform === "GFG" ? "GeeksforGeeks" : problem.platform}
           {problem.linkVerified && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -184,11 +184,11 @@ export function ProblemRow({
             if (!url) return null;
             if (problem.platform === "LeetCode" && !problem.linkVerified && !getCanonicalProblemLink(problem.name)) return null;
             const linkPlatform =
-              url.includes("geeksforgeeks.org") ? "GFG" :
+              url.includes("geeksforgeeks.org") ? "GeeksforGeeks" :
                 url.includes("hackerrank.com") ? "HackerRank" :
                   url.includes("w3schools.com") ? "W3Schools" :
                     url.includes("leetcode.com") ? "LeetCode" :
-                      problem.platform;
+                      (problem.platform === "GFG" ? "GeeksforGeeks" : problem.platform);
             const hint =
               linkPlatform === "LeetCode"
                 ? "Opens this problem directly on LeetCode"

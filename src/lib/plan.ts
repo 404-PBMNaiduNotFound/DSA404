@@ -66,17 +66,18 @@ function platformLink(p: SeedProblem): string {
   if (p.l) return p.l;
   const q = encodeURIComponent(p.n);
   if (p.p === "LeetCode") return `https://leetcode.com/problemset/?search=${q}`;
-  if (p.p === "GFG") return `https://www.geeksforgeeks.org/search/?gq=${q}`;
+  if (p.p === "GFG" || p.p === "GeeksforGeeks") return `https://www.geeksforgeeks.org/search/?gq=${q}`;
   return `https://www.naukri.com/code360/search?q=${q}`;
 }
 
 const estFor = (d: Difficulty) => (d === "Easy" ? 15 : d === "Medium" ? 30 : 45);
 
 function toProblem(p: SeedProblem): Problem {
+  const normPlat = p.p === "GFG" || p.p === "GeeksforGeeks" ? "GeeksforGeeks" : p.p;
   return {
     name: p.n,
     difficulty: p.d,
-    platform: p.p,
+    platform: normPlat,
     link: platformLink(p),
     linkVerified: Boolean(p.l),
     // No hardcoded TUF metadata in the problem database — the Google search

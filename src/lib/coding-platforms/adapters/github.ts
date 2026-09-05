@@ -1,4 +1,4 @@
-import { NormalizedCodingProfile, PlatformAdapter } from "../types";
+import { NormalizedCodingProfile, PlatformAdapter, SubmissionRecord } from "../types";
 import { PLATFORM_CAPABILITIES_MAP } from "../capabilities";
 import { normalizeProfileData } from "../normalizer";
 
@@ -74,7 +74,7 @@ export class GitHubAdapter implements PlatformAdapter {
       }
 
       // 3. Fetch public events as recentSubmissions / supplemental activity
-      const recentSubs: Array<{ timestamp: string; date: string; problemName: string; verdict: string }> = [];
+      const recentSubs: SubmissionRecord[] = [];
       try {
         const eventsRes = await fetchWithTimeout(`https://api.github.com/users/${cleanUsername}/events/public`, {}, 2500);
         if (eventsRes.ok) {
@@ -85,10 +85,12 @@ export class GitHubAdapter implements PlatformAdapter {
                 const dateKey = ev.created_at.slice(0, 10);
                 calendarMap[dateKey] = (calendarMap[dateKey] || 0) + 1;
                 recentSubs.push({
-                  timestamp: ev.created_at,
-                  date: dateKey,
+                  id: `gh-${cleanUsername}-${ev.id || dateKey}`,
+                  problemId: `gh-${ev.id || dateKey}`,
                   problemName: `${ev.type ? ev.type.replace(/Event$/, "") : "Activity"} on ${ev.repo?.name || "GitHub"}`,
-                  verdict: "Pushed",
+                  platform: "github",
+                  verdict: "Accepted",
+                  timestamp: ev.created_at,
                 });
               }
             });

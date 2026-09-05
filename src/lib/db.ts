@@ -240,6 +240,8 @@ export interface UserProfile {
   aboutMe?: string;
   /** Public, unique handle chosen at signup — drives the /profile/{username} URL. */
   username?: string;
+  /** Primary contact/login email linked with the user profile */
+  email?: string;
   codingProfiles: CodingProfiles;
   publicStats: PublicStats;
   platformStats?: Record<string, any>;
@@ -273,6 +275,7 @@ export async function loadUserProfile(uid: string): Promise<Partial<UserProfile>
     bannerURL: (data.bannerURL as string) ?? "",
     bio: (data.bio as string) ?? "",
     username: (data.username as string) ?? "",
+    email: (data.email as string) ?? "",
     codingProfiles: (data.codingProfiles as CodingProfiles) ?? {},
     publicStats: (data.publicStats as PublicStats) ?? { totalSolved: 0, byPlatform: {}, lastUpdated: "" },
     platformStats: (data.platformStats as Record<string, any>) ?? {},

@@ -48,6 +48,16 @@ import {
   Clock,
   Mail,
   Palette,
+  Globe,
+  ExternalLink,
+  Check,
+  Loader2,
+  ArrowRight,
+  Link2,
+  TrendingUp,
+  BarChart3,
+  CheckCircle,
+  Share2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -84,7 +94,7 @@ const FAKE_USER = {
 const FAKE_TODAY_PROBLEMS = [
   { title: "Reverse Linked List", difficulty: "Easy", done: true, platform: "LeetCode" },
   { title: "Detect Cycle in Linked List", difficulty: "Easy", done: true, platform: "LeetCode" },
-  { title: "Merge Two Sorted Lists", difficulty: "Easy", done: false, platform: "GFG" },
+  { title: "Merge Two Sorted Lists", difficulty: "Easy", done: false, platform: "GeeksforGeeks" },
   { title: "Add Two Numbers (Linked List)", difficulty: "Medium", done: false, platform: "LeetCode" },
   { title: "Flatten a Multilevel DLL", difficulty: "Hard", done: false, platform: "LeetCode" },
 ];
@@ -299,7 +309,7 @@ function TodayPanel() {
 }
 
 function ProblemsPanel() {
-  const platforms = ["All", "LeetCode", "GFG", "CodeChef", "HackerRank"];
+  const platforms = ["All", "LeetCode", "GeeksforGeeks", "CodeChef", "HackerRank"];
   const [active, setActive] = useState("All");
   return (
     <div className="space-y-4">
@@ -467,7 +477,7 @@ function ReviewPanel() {
   const [reviewList, setReviewList] = useState([
     { title: "LRU Cache (Least Recently Used)", difficulty: "Hard", topic: "Linked List & Hash Map", due: "Due Today", platform: "LeetCode" },
     { title: "Trapping Rain Water", difficulty: "Hard", topic: "Two Pointers / Stack", due: "2 Days Ago", platform: "LeetCode" },
-    { title: "Word Break (DP)", difficulty: "Medium", topic: "Dynamic Programming", due: "3 Days Ago", platform: "GFG" },
+    { title: "Word Break (DP)", difficulty: "Medium", topic: "Dynamic Programming", due: "3 Days Ago", platform: "GeeksforGeeks" },
     { title: "Kth Largest Element in an Array", difficulty: "Medium", topic: "Heap / QuickSelect", due: "Last Week", platform: "LeetCode" },
   ]);
 
@@ -619,7 +629,142 @@ function ContestsPanel() {
   );
 }
 
+interface ExtractedPlatformState {
+  platform: "LeetCode" | "Codeforces" | "GeeksforGeeks" | "GitHub";
+  handle: string;
+  url: string;
+  rank: string;
+  rating: number;
+  totalSolved: number;
+  easy: { solved: number; total: number };
+  medium: { solved: number; total: number };
+  hard: { solved: number; total: number };
+  streak: string;
+  extraStatLabel: string;
+  extraStatVal: string;
+  accentColor: string;
+  accentBg: string;
+  badge: string;
+}
+
+const PRESET_PROFILES: Record<string, ExtractedPlatformState> = {
+  leetcode: {
+    platform: "LeetCode",
+    handle: "aditisharma_codes",
+    url: "https://leetcode.com/u/aditisharma_codes",
+    rank: "Guardian (Top 1.4%)",
+    rating: 2185,
+    totalSolved: 542,
+    easy: { solved: 210, total: 820 },
+    medium: { solved: 265, total: 1720 },
+    hard: { solved: 67, total: 740 },
+    streak: "48 Days Active",
+    extraStatLabel: "Acceptance Rate",
+    extraStatVal: "68.4%",
+    accentColor: "text-amber-500",
+    accentBg: "bg-amber-500/10 border-amber-500/20",
+    badge: "Contest Rating 2185",
+  },
+  codeforces: {
+    platform: "Codeforces",
+    handle: "aditi_cf",
+    url: "https://codeforces.com/profile/aditi_cf",
+    rank: "Candidate Master",
+    rating: 1845,
+    totalSolved: 312,
+    easy: { solved: 140, total: 300 },
+    medium: { solved: 130, total: 400 },
+    hard: { solved: 42, total: 200 },
+    streak: "24 Contests",
+    extraStatLabel: "Max Rating",
+    extraStatVal: "1910 (Expert)",
+    accentColor: "text-blue-500",
+    accentBg: "bg-blue-500/10 border-blue-500/20",
+    badge: "Div. 2 Specialist",
+  },
+  gfg: {
+    platform: "GeeksforGeeks",
+    handle: "aditi_geek",
+    url: "https://auth.geeksforgeeks.org/user/aditi_geek",
+    rank: "Institute Rank #3",
+    rating: 1240,
+    totalSolved: 388,
+    easy: { solved: 180, total: 500 },
+    medium: { solved: 165, total: 700 },
+    hard: { solved: 43, total: 300 },
+    streak: "35 POTD Streak",
+    extraStatLabel: "Coding Score",
+    extraStatVal: "1,240 pts",
+    accentColor: "text-emerald-500",
+    accentBg: "bg-emerald-500/10 border-emerald-500/20",
+    badge: "POTD Champion",
+  },
+  github: {
+    platform: "GitHub",
+    handle: "aditisharma",
+    url: "https://github.com/aditisharma",
+    rank: "Top 5% Contributor",
+    rating: 1420,
+    totalSolved: 1420,
+    easy: { solved: 450, total: 500 },
+    medium: { solved: 620, total: 800 },
+    hard: { solved: 350, total: 400 },
+    streak: "112 Contributions",
+    extraStatLabel: "Public Repos",
+    extraStatVal: "34 Repos",
+    accentColor: "text-purple-500",
+    accentBg: "bg-purple-500/10 border-purple-500/20",
+    badge: "Verified Developer",
+  },
+};
+
+function detectPlatformFromUrl(raw: string): { platform: ExtractedPlatformState["platform"]; handle: string } {
+  const lower = raw.toLowerCase().trim();
+  if (lower.includes("codeforces.com")) {
+    const match = raw.match(/codeforces\.com\/profile\/([^/?#]+)/i);
+    return { platform: "Codeforces", handle: match ? match[1] : "aditi_cf" };
+  }
+  if (lower.includes("geeksforgeeks.org") || lower.includes("gfg")) {
+    const match = raw.match(/geeksforgeeks\.org\/user\/([^/?#]+)/i);
+    return { platform: "GeeksforGeeks", handle: match ? match[1] : "aditi_geek" };
+  }
+  if (lower.includes("github.com")) {
+    const match = raw.match(/github\.com\/([^/?#]+)/i);
+    return { platform: "GitHub", handle: match ? match[1] : "aditisharma" };
+  }
+  const lcMatch = raw.match(/leetcode\.com\/(?:u\/)?([^/?#]+)/i);
+  return { platform: "LeetCode", handle: lcMatch ? lcMatch[1] : (raw.trim() || "aditisharma_codes") };
+}
+
 function ProfilePanel() {
+  const [urlInput, setUrlInput] = useState("https://leetcode.com/u/aditisharma_codes");
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractedState, setExtractedState] = useState<ExtractedPlatformState>(PRESET_PROFILES.leetcode);
+  const [extractedSuccess, setExtractedSuccess] = useState(true);
+
+  const handleExtract = (urlToExtract?: string) => {
+    const target = urlToExtract || urlInput;
+    setIsExtracting(true);
+    setExtractedSuccess(false);
+
+    setTimeout(() => {
+      const { platform, handle } = detectPlatformFromUrl(target);
+      let base: ExtractedPlatformState;
+      if (platform === "Codeforces") base = { ...PRESET_PROFILES.codeforces };
+      else if (platform === "GeeksforGeeks") base = { ...PRESET_PROFILES.gfg };
+      else if (platform === "GitHub") base = { ...PRESET_PROFILES.github };
+      else base = { ...PRESET_PROFILES.leetcode };
+
+      setExtractedState({
+        ...base,
+        handle: handle.replace(/[^a-zA-Z0-9_-]/g, "") || base.handle,
+        url: target.startsWith("http") ? target : `https://${platform.toLowerCase()}.com/${handle}`,
+      });
+      setIsExtracting(false);
+      setExtractedSuccess(true);
+    }, 450);
+  };
+
   return (
     <div className="space-y-5">
       {/* Profile Header Banner */}
@@ -663,6 +808,208 @@ function ProfilePanel() {
             <p className="text-[11px] text-muted-foreground mt-0.5">{m.label}</p>
           </div>
         ))}
+      </div>
+
+      {/* ── INTERACTIVE CODING PLATFORM EXTRACTOR ── */}
+      <div className="rounded-2xl border border-primary/30 bg-card p-5 shadow-sm space-y-4 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="flex size-6 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">
+                <Link2 className="size-3.5" />
+              </span>
+              <h4 className="font-display font-bold text-base text-foreground">
+                Coding Platform Profile Telemetry Extractor
+              </h4>
+              <Badge variant="outline" className="font-mono text-[10px] bg-primary/10 text-primary border-primary/20">
+                Live Inspector
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Place any coding platform profile URL below to extract solved counts, contest ratings, and difficulty breakdowns.
+            </p>
+          </div>
+        </div>
+
+        {/* Input Bar */}
+        <div className="space-y-2">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleExtract()}
+                placeholder="Paste URL e.g. https://leetcode.com/u/username or https://codeforces.com/profile/handle"
+                className="w-full h-10 px-3.5 rounded-xl border border-border bg-background text-xs font-mono text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+              />
+            </div>
+            <Button
+              onClick={() => handleExtract()}
+              disabled={isExtracting || !urlInput.trim()}
+              className="h-10 px-4 text-xs font-semibold gap-1.5 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {isExtracting ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Extracting State...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="size-3.5" />
+                  Extract Details
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Quick Presets */}
+          <div className="flex items-center flex-wrap gap-1.5 pt-1">
+            <span className="text-[11px] font-mono text-muted-foreground mr-1">Quick Presets:</span>
+            {[
+              { label: "LeetCode", url: "https://leetcode.com/u/aditisharma_codes" },
+              { label: "Codeforces", url: "https://codeforces.com/profile/aditi_cf" },
+              { label: "GeeksforGeeks", url: "https://auth.geeksforgeeks.org/user/aditi_geek" },
+              { label: "GitHub", url: "https://github.com/aditisharma" },
+            ].map((p) => (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => {
+                  setUrlInput(p.url);
+                  handleExtract(p.url);
+                }}
+                className="text-[11px] font-mono px-2.5 py-1 rounded-lg border border-border/80 bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Extracted Details Result Card */}
+        {extractedState && (
+          <div className={cn("rounded-xl border p-4.5 space-y-4 transition-all animate-in fade-in-50 duration-300", extractedState.accentBg)}>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-border/50 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="size-11 rounded-xl bg-background border border-border flex items-center justify-center font-display font-black text-sm shadow-sm">
+                  <span className={extractedState.accentColor}>{extractedState.platform[0]}</span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-display font-bold text-sm text-foreground">{extractedState.platform}</span>
+                    <Badge variant="outline" className="font-mono text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 gap-1">
+                      <CheckCircle className="size-2.5" /> Extracted & Verified
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="font-mono text-xs text-muted-foreground">@{extractedState.handle}</span>
+                    <a
+                      href={extractedState.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] font-mono text-primary hover:underline inline-flex items-center gap-0.5"
+                    >
+                      Open Platform <ExternalLink className="size-2.5" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="font-mono text-xs font-semibold px-2.5 py-1 bg-background">
+                  {extractedState.badge}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Platform Stats Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div className="rounded-lg border border-border/70 bg-background/80 p-2.5">
+                <p className="text-[10px] font-mono text-muted-foreground uppercase">Total Solved</p>
+                <p className="font-mono text-base font-black text-foreground mt-0.5">{extractedState.totalSolved}</p>
+                <p className="text-[10px] text-muted-foreground">Verified Submissions</p>
+              </div>
+              <div className="rounded-lg border border-border/70 bg-background/80 p-2.5">
+                <p className="text-[10px] font-mono text-muted-foreground uppercase">Rating / Standing</p>
+                <p className="font-mono text-base font-black text-foreground mt-0.5">{extractedState.rating}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{extractedState.rank}</p>
+              </div>
+              <div className="rounded-lg border border-border/70 bg-background/80 p-2.5">
+                <p className="text-[10px] font-mono text-muted-foreground uppercase">Activity Streak</p>
+                <p className="font-mono text-base font-black text-foreground mt-0.5">{extractedState.streak}</p>
+                <p className="text-[10px] text-muted-foreground">Consistency Metric</p>
+              </div>
+              <div className="rounded-lg border border-border/70 bg-background/80 p-2.5">
+                <p className="text-[10px] font-mono text-muted-foreground uppercase">{extractedState.extraStatLabel}</p>
+                <p className="font-mono text-base font-black text-foreground mt-0.5">{extractedState.extraStatVal}</p>
+                <p className="text-[10px] text-muted-foreground">Telemetry Synced</p>
+              </div>
+            </div>
+
+            {/* Solved Distribution Progress Bars */}
+            <div className="rounded-lg border border-border/70 bg-background/80 p-3 space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-foreground">Difficulty Level Distribution</span>
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {extractedState.easy.solved + extractedState.medium.solved + extractedState.hard.solved} Solved Across Tiers
+                </span>
+              </div>
+              <div className="space-y-2.5">
+                <div>
+                  <div className="flex justify-between text-[11px] font-mono mb-1">
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Easy</span>
+                    <span className="text-muted-foreground">{extractedState.easy.solved} / {extractedState.easy.total}</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full transition-all duration-300" style={{ width: `${Math.min(100, Math.round((extractedState.easy.solved / extractedState.easy.total) * 100))}%` }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-[11px] font-mono mb-1">
+                    <span className="text-amber-600 dark:text-amber-400 font-semibold">Medium</span>
+                    <span className="text-muted-foreground">{extractedState.medium.solved} / {extractedState.medium.total}</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-500 rounded-full transition-all duration-300" style={{ width: `${Math.min(100, Math.round((extractedState.medium.solved / extractedState.medium.total) * 100))}%` }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-[11px] font-mono mb-1">
+                    <span className="text-rose-600 dark:text-rose-400 font-semibold">Hard</span>
+                    <span className="text-muted-foreground">{extractedState.hard.solved} / {extractedState.hard.total}</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-rose-500 rounded-full transition-all duration-300" style={{ width: `${Math.min(100, Math.round((extractedState.hard.solved / extractedState.hard.total) * 100))}%` }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Combined Public URL Callout Banner */}
+        <div className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-background to-primary/10 p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <Globe className="size-4" />
+            </span>
+            <div>
+              <p className="font-semibold text-xs text-foreground">Shareable Public Developer Profile URL</p>
+              <p className="font-mono text-[11px] text-muted-foreground">
+                Your portfolio at <span className="text-primary font-semibold">404dsatracker.com/profile/aditisharma_codes</span> aggregates all platforms automatically!
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/auth?tab=signup"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shrink-0"
+          >
+            Claim Your Handle <ArrowRight className="size-3" />
+          </Link>
+        </div>
       </div>
 
       {/* Achievements Badges */}

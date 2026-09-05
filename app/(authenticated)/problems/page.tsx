@@ -40,6 +40,7 @@ function ThemedTooltip({ hint, children }: { hint: string; children: React.React
 export type Platform =
   | "All"
   | "LeetCode"
+  | "GeeksforGeeks"
   | "GFG";
 
 export type SheetFilter = "All" | "Core 404" | Sheet;
@@ -59,7 +60,7 @@ export type SortOption =
 const PLATFORMS: Platform[] = [
   "All",
   "LeetCode",
-  "GFG",
+  "GeeksforGeeks",
 ];
 
 const SHEET_FILTERS: SheetFilter[] = [
@@ -86,15 +87,17 @@ const SORT_OPTIONS: SortOption[] = [
 function canonicalPlatform(raw: string): Platform {
   const r = raw.toLowerCase();
   if (r.includes("leetcode")) return "LeetCode";
-  if (r.includes("gfg") || r.includes("geeks")) return "GFG";
+  if (r.includes("gfg") || r.includes("geeks")) return "GeeksforGeeks";
   return "All";
 }
 
-export function platformSearchLink(name: string, platform: Platform): string {
+export function platformSearchLink(name: string, platform: Platform | string): string {
   const q = encodeURIComponent(name);
+  if (platform === "GeeksforGeeks" || platform === "GFG") {
+    return `https://www.geeksforgeeks.org/explore?search=${q}`;
+  }
   switch (platform) {
     case "LeetCode": return `https://leetcode.com/problemset/?search=${q}`;
-    case "GFG": return `https://www.geeksforgeeks.org/explore?search=${q}`;
     default: return `https://leetcode.com/problemset/?search=${q}`;
   }
 }
@@ -104,9 +107,10 @@ function googleSearchUrl(problemName: string) {
   return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
 }
 
-export const PLATFORM_META: Record<Platform, { label: string; color: string; bg: string; dot: string }> = {
+export const PLATFORM_META: Record<string, { label: string; color: string; bg: string; dot: string }> = {
   All: { label: "All", color: "text-foreground", bg: "bg-secondary", dot: "bg-muted-foreground" },
   LeetCode: { label: "LeetCode", color: "text-[#FFA116]", bg: "bg-[#FFA116]/10", dot: "bg-[#FFA116]" },
+  GeeksforGeeks: { label: "GeeksforGeeks", color: "text-[#2F8D46]", bg: "bg-[#2F8D46]/10", dot: "bg-[#2F8D46]" },
   GFG: { label: "GeeksforGeeks", color: "text-[#2F8D46]", bg: "bg-[#2F8D46]/10", dot: "bg-[#2F8D46]" },
 };
 
@@ -285,8 +289,8 @@ function ProblemItem({
                 <DropdownMenuItem asChild>
                   <a href={problem.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-semibold text-foreground">
                     <ExternalLink className="size-3.5 text-sky-400" />
-                    <ThemedTooltip hint={`${problem.platform} Official Page Link if it shows 404 erros then try solve btn`}>
-                      <span>{problem.platform} Official Page</span>
+                    <ThemedTooltip hint={`${problem.platform === "GFG" ? "GeeksforGeeks" : problem.platform} Official Page Link if it shows 404 erros then try solve btn`}>
+                      <span>{problem.platform === "GFG" ? "GeeksforGeeks" : problem.platform} Official Page</span>
                     </ThemedTooltip>
                   </a>
                 </DropdownMenuItem>
@@ -427,17 +431,24 @@ export default function ProblemsPage() {
       if (paramStatus === "Revision Needed" && !hasSubmission) return false;
 
       if (paramDiff !== "All" && p.difficulty !== paramDiff) return false;
-      if (paramPlat !== "All" && p.platform !== paramPlat) return false;
+      if (paramPlat !== "All") {
+        const targetPlat = paramPlat === "GFG" ? "GeeksforGeeks" : paramPlat;
+        const probPlat = p.platform === "GFG" ? "GeeksforGeeks" : p.platform;
+        if (probPlat !== targetPlat) return false;
+      }
       if (paramSheet !== "All" && p.sheet !== paramSheet) return false;
       if (paramTopic !== "All" && p.topic !== paramTopic) return false;
 
       if (paramQuery.trim()) {
         const q = paramQuery.toLowerCase();
+        const matchesPlat =
+          p.platform.toLowerCase().includes(q) ||
+          ((q === "gfg" || q === "geeks") && (p.platform === "GeeksforGeeks" || p.platform === "GFG"));
         return (
           p.name.toLowerCase().includes(q) ||
           p.topic.toLowerCase().includes(q) ||
           p.sheet.toLowerCase().includes(q) ||
-          p.platform.toLowerCase().includes(q)
+          matchesPlat
         );
       }
       return true;

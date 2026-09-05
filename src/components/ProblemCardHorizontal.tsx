@@ -44,6 +44,7 @@ const platformColors: Record<string, string> = {
   LeetCode: "bg-orange-500/15 text-orange-400 border-orange-500/30",
   Codeforces: "bg-sky-500/15 text-sky-400 border-sky-500/30",
   GeeksforGeeks: "bg-emerald-600/15 text-emerald-400 border-emerald-600/30",
+  GFG: "bg-emerald-600/15 text-emerald-400 border-emerald-600/30",
   HackerRank: "bg-green-500/15 text-green-400 border-green-500/30",
   AtCoder: "bg-blue-400/15 text-blue-300 border-blue-400/30",
   CodeChef: "bg-amber-700/15 text-amber-300 border-amber-700/30",
@@ -113,14 +114,19 @@ export function ProblemCardHorizontal({
         {/* Card Header: Badges & Actions */}
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span
-              className={cn(
-                "rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase",
-                platformColors[problem.platform] ?? "bg-white/10 text-muted-foreground border-white/10"
-              )}
-            >
-              {problem.platform}
-            </span>
+            {(() => {
+              const displayPlat = problem.platform === "GFG" ? "GeeksforGeeks" : problem.platform;
+              return (
+                <span
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase",
+                    platformColors[displayPlat] ?? "bg-white/10 text-muted-foreground border-white/10"
+                  )}
+                >
+                  {displayPlat}
+                </span>
+              );
+            })()}
             <span
               className={cn(
                 "rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide",
@@ -227,11 +233,11 @@ export function ProblemCardHorizontal({
                   const effectiveLink = getCanonicalProblemLink(problem.name) ?? problem.link;
                   if (!effectiveLink) return null;
                   const linkPlatform =
-                    effectiveLink.includes("geeksforgeeks.org") ? "GFG" :
+                    effectiveLink.includes("geeksforgeeks.org") ? "GeeksforGeeks" :
                       effectiveLink.includes("hackerrank.com") ? "HackerRank" :
                         effectiveLink.includes("w3schools.com") ? "W3Schools" :
                           effectiveLink.includes("leetcode.com") ? "LeetCode" :
-                            problem.platform;
+                            (problem.platform === "GFG" ? "GeeksforGeeks" : problem.platform);
                   return (
                     <DropdownMenuItem asChild>
                       <a href={effectiveLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-semibold text-primary">

@@ -1,4 +1,4 @@
-import { NormalizedCodingProfile, PlatformAdapter } from "../types";
+import { NormalizedCodingProfile, PlatformAdapter, SubmissionRecord } from "../types";
 import { PLATFORM_CAPABILITIES_MAP } from "../capabilities";
 import { normalizeProfileData } from "../normalizer";
 import { format, subDays } from "date-fns";
@@ -46,7 +46,7 @@ export class GFGAdapter implements PlatformAdapter {
 
     try {
       const calendarMap: Record<string, number> = {};
-      const recentSubs: Array<{ timestamp?: string; date?: string; problemName?: string; verdict?: string }> = [];
+      const recentSubs: SubmissionRecord[] = [];
       let displayName = cleanUsername;
       let avatarUrl: string | null = null;
       let rating: number | null = null;
@@ -156,9 +156,12 @@ export class GFGAdapter implements PlatformAdapter {
           const countForDay = Math.min(remaining, dayOffset === 0 ? 2 : 1);
           calendarMap[dateStr] = countForDay;
           recentSubs.push({
-            date: dateStr,
+            id: `gfg-${cleanUsername}-${dateStr}-${dayOffset}`,
+            problemId: `prob-${totalSolved - remaining + 1}`,
             problemName: `Problem ${totalSolved - remaining + 1}`,
-            verdict: "Solved",
+            platform: "gfg",
+            verdict: "Accepted",
+            timestamp: new Date(dateStr).toISOString(),
           });
           remaining -= countForDay;
           dayOffset++;

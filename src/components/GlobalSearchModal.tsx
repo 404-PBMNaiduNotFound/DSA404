@@ -176,6 +176,7 @@ export function GlobalSearchModal({ open, onOpenChange, onOpenColorPanel }: Glob
         p.name.toLowerCase().includes(q) ||
         p.topic.toLowerCase().includes(q) ||
         p.platform.toLowerCase().includes(q) ||
+        ((q === "gfg" || q === "geeks") && (p.platform === "GeeksforGeeks" || (p.platform as string) === "GFG")) ||
         p.difficulty.toLowerCase().includes(q)
     ).slice(0, 20);
 
@@ -304,7 +305,7 @@ export function GlobalSearchModal({ open, onOpenChange, onOpenColorPanel }: Glob
                     <div className="min-w-0 flex-1 cursor-pointer" onClick={() => handleSelectProblem(p.name)}>
                       <div className="flex items-center gap-1.5 mb-1">
                         <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-muted-foreground">
-                          {p.platform}
+                          {p.platform === "GFG" ? "GeeksforGeeks" : p.platform}
                         </span>
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-muted-foreground">
                           {p.difficulty}

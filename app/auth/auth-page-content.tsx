@@ -23,7 +23,7 @@ import { PasswordInput } from "@/components/PasswordInput";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Check, X, User as UserIcon, AtSign, Mail, Lock } from "lucide-react";
+import { Loader2, Check, X, User as UserIcon, AtSign, Mail, Lock, Sparkles } from "lucide-react";
 import {
   claimUsername,
   getEmailByUsername,
@@ -248,19 +248,6 @@ export function AuthPageContent() {
       return;
     }
 
-    const typedHandle = username.trim();
-    if (typedHandle) {
-      const u = normalizeUsername(typedHandle);
-      if (!USERNAME_REGEX.test(u)) {
-        toast.error("Username must be 3-20 characters: lowercase letters, numbers, - or _ only.");
-        return;
-      }
-      if (usernameStatus === "taken") {
-        toast.error("That username is already taken. Please choose another.");
-        return;
-      }
-    }
-
     setBusy(true);
     try {
       const provider = new GoogleAuthProvider();
@@ -275,21 +262,33 @@ export function AuthPageContent() {
       let finalUsername = existingProfile?.username;
 
       if (isNewUser) {
-        // Determine handle: use typed username if valid, otherwise derive from email/displayName
-        let candidateHandle = typedHandle ? normalizeUsername(typedHandle) : "";
-        if (!candidateHandle || !USERNAME_REGEX.test(candidateHandle)) {
-          const emailPrefix = normalizeUsername(userEmail.split("@")[0] || "user");
-          candidateHandle = USERNAME_REGEX.test(emailPrefix) ? emailPrefix : `user_${cred.user.uid.slice(0, 6).toLowerCase()}`;
+        // Automatically derive clean, fixed unique handle from Google email
+        let rawHandle = (userEmail.split("@")[0] || "user")
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]/g, "_")
+          .replace(/_{2,}/g, "_")
+          .replace(/^_+|_+$/g, "")
+          .slice(0, 16);
+        if (rawHandle.length < 3) rawHandle = `user_${rawHandle}`;
+        let candidateHandle = normalizeUsername(rawHandle);
+        if (!USERNAME_REGEX.test(candidateHandle)) {
+          candidateHandle = `user_${cred.user.uid.slice(0, 6).toLowerCase()}`;
         }
 
-        // Ensure candidate handle is available
-        let available = await isUsernameAvailable(candidateHandle);
-        if (!available) {
-          candidateHandle = `user_${cred.user.uid.slice(0, 6).toLowerCase()}`;
-          let retryAvail = await isUsernameAvailable(candidateHandle);
-          if (!retryAvail) {
-            candidateHandle = `u_${Date.now().toString(36)}`;
+        // Ensure candidate handle is available, appending number suffix if taken
+        let isAvail = await isUsernameAvailable(candidateHandle);
+        let counter = 1;
+        while (!isAvail && counter <= 20) {
+          const nextCandidate = `${candidateHandle.slice(0, 14)}_${counter}`;
+          if (await isUsernameAvailable(nextCandidate)) {
+            candidateHandle = nextCandidate;
+            isAvail = true;
+            break;
           }
+          counter++;
+        }
+        if (!isAvail) {
+          candidateHandle = `u_${Date.now().toString(36)}`;
         }
 
         try {
@@ -300,6 +299,7 @@ export function AuthPageContent() {
         }
 
         await saveUserProfile(cred.user.uid, {
+          username: finalUsername || candidateHandle,
           displayName: userDisplayName,
           photoURL: cred.user.photoURL ?? undefined,
         });
@@ -320,7 +320,7 @@ export function AuthPageContent() {
 
       await proceedAfterAuth(cred.user, {
         title: isNewUser ? "Account created with Google! 🎉" : "Welcome back! Thanks for logging in.",
-        description: isNewUser ? `Welcome @${finalUsername || "learner"}! Let's set up your plan.` : "Ready to solve today's DSA problems?",
+        description: isNewUser ? `Welcome @${finalUsername || "learner"}! Your plan is ready.` : "Ready to solve today's DSA problems?",
       });
     } catch (e) {
       toast.error(authErrorMessage(e));
@@ -544,54 +544,20 @@ export function AuthPageContent() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="google" className="pt-2 space-y-3.5">
-                <div className="space-y-1.5 text-left">
-                  <Label htmlFor="google-signup-username">Username (Optional)</Label>
-                  <div className="relative">
-                    <Input
-                      id="google-signup-username"
-                      type="text"
-                      placeholder="e.g. alex_turner"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      disabled={busy}
-                      className={
-                        usernameStatus === "taken" || usernameStatus === "invalid"
-                          ? "border-destructive focus-visible:ring-destructive pr-9"
-                          : usernameStatus === "available"
-                            ? "border-emerald-500 focus-visible:ring-emerald-500 pr-9"
-                            : "pr-9"
-                      }
-                    />
-                    {usernameIcon && (
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2">
-                        {usernameIcon}
-                      </span>
-                    )}
-                  </div>
-                  <p
-                    className={`text-[11px] ${
-                      usernameStatus === "taken" || usernameStatus === "invalid"
-                        ? "text-destructive"
-                        : usernameStatus === "available"
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-muted-foreground"
-                    }`}
-                  >
-                    {usernameStatus === "taken"
-                      ? "That username is already taken — choose another."
-                      : usernameStatus === "invalid"
-                        ? "3-20 characters: lowercase letters, numbers, - or _ only."
-                        : usernameStatus === "available"
-                          ? "Username is available!"
-                          : "Unique handle for your public profile. Leave empty to auto-generate from Google profile."}
+              <TabsContent value="google" className="pt-2 space-y-4">
+                <div className="rounded-xl border border-border/80 bg-muted/30 p-3.5 text-left space-y-1">
+                  <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Sparkles className="size-3.5 text-primary" /> 1-Click Instant Sign In
+                  </p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Sign in or create your account directly with Google. Your unique handle will be automatically secured based on your account.
                   </p>
                 </div>
 
                 <Button
                   variant="outline"
-                  className="w-full cursor-pointer font-mono text-xs gap-2 py-2.5"
-                  disabled={busy || usernameStatus === "taken" || usernameStatus === "invalid"}
+                  className="w-full cursor-pointer font-medium text-xs gap-2.5 py-3 h-11 border-border/90 hover:bg-muted"
+                  disabled={busy}
                   onClick={handleGoogleSignIn}
                 >
                   {busy ? <Loader2 className="size-4 animate-spin" /> : (
@@ -602,7 +568,7 @@ export function AuthPageContent() {
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                     </svg>
                   )}
-                  <span>Sign in with Google</span>
+                  <span>Continue with Google</span>
                 </Button>
               </TabsContent>
             </Tabs>

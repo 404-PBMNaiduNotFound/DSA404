@@ -30,6 +30,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   Camera,
@@ -47,6 +56,11 @@ import {
   Trash2,
   UserCircle2,
   X,
+  Mail,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -168,6 +182,15 @@ export function DeveloperProfilePage() {
   const [copied, setCopied] = useState(false);
   const [selectedProblemForModal, setSelectedProblemForModal] = useState<string | null>(null);
 
+  // — Edit Details section toggle & Gmail modal state
+  const [showEditDetails, setShowEditDetails] = useState(false);
+  const [profileEmail, setProfileEmail] = useState("");
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [gmailInput, setGmailInput] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+
+  const currentEmail = profileEmail || user?.email || "";
+
   // — Load profile
   useEffect(() => {
     if (!user || !user.uid) {
@@ -189,6 +212,11 @@ export function DeveloperProfilePage() {
         setAboutMe(p.aboutMe ?? "");
         setUsername(p.username ?? "");
         setUsernameDraft(p.username ?? "");
+        if (p.email) {
+          setProfileEmail(p.email);
+        } else if (user.email) {
+          setProfileEmail(user.email);
+        }
         if (p.platformStats) setPlatformStats(p.platformStats);
         // Auto-fill from the Google account photo the first time there's no
         // avatar saved yet (no Firestore photoURL and nothing cached
@@ -204,7 +232,43 @@ export function DeveloperProfilePage() {
         setDraftCustomLinks(p.codingProfiles?.customLinks ?? []);
       })
       .finally(() => setLoadingProfile(false));
-  }, [user?.uid]);
+  }, [user?.uid, user?.email]);
+
+  // If user has no email linked when visiting profile, prompt them
+  useEffect(() => {
+    if (!loadingProfile && user && !currentEmail) {
+      setGmailInput("");
+      setIsEmailModalOpen(true);
+    }
+  }, [loadingProfile, user, currentEmail]);
+
+  const handleSaveGmail = async () => {
+    if (!user) return;
+    const trimmed = gmailInput.trim().toLowerCase();
+    const GMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
+    if (!GMAIL_REGEX.test(trimmed)) {
+      toast.error("Invalid Gmail address", {
+        description: "Please enter a valid Gmail address ending with @gmail.com",
+      });
+      return;
+    }
+
+    setSavingEmail(true);
+    try {
+      await saveUserProfile(user.uid, { email: trimmed });
+      setProfileEmail(trimmed);
+      setIsEmailModalOpen(false);
+      toast.success("Gmail address saved! 🎉", {
+        description: `Linked ${trimmed} to your account.`,
+      });
+    } catch (err) {
+      toast.error("Failed to save Gmail address", {
+        description: "Please try again.",
+      });
+    } finally {
+      setSavingEmail(false);
+    }
+  };
 
   // — Live username availability check as the user edits their handle.
   // Idle whenever the draft matches what's already saved — no need to
@@ -283,9 +347,11 @@ export function DeveloperProfilePage() {
           seen.add(p.name);
           const sub = submissions[p.name];
           const platLink = getCanonicalProblemLink(p.name) || p.link || "";
+          const rawPlat = p.platform || "DSA";
+          const normPlat = (rawPlat === "GFG" || rawPlat.toLowerCase().includes("geeks")) ? "GeeksforGeeks" : rawPlat;
           list.push({
             name: p.name,
-            platform: p.platform || "DSA",
+            platform: normPlat,
             difficulty: p.difficulty || "Medium",
             link: platLink,
             ...(sub ? { code: sub.code, submissionLink: sub.link || platLink, keyPoints: sub.keyPoints } : {}),
@@ -298,9 +364,11 @@ export function DeveloperProfilePage() {
         seen.add(fp.name);
         const sub = submissions[fp.name];
         const platLink = getCanonicalProblemLink(fp.name) || fp.link || "";
+        const rawPlat = fp.platform || "DSA";
+        const normPlat = (rawPlat === "GFG" || rawPlat.toLowerCase().includes("geeks")) ? "GeeksforGeeks" : rawPlat;
         list.push({
           name: fp.name,
-          platform: fp.platform || "DSA",
+          platform: normPlat,
           difficulty: fp.difficulty || "Medium",
           link: platLink,
           ...(sub ? { code: sub.code, submissionLink: sub.link || platLink, keyPoints: sub.keyPoints } : {}),
@@ -312,7 +380,10 @@ export function DeveloperProfilePage() {
 
   const stats = useMemo(() => {
     const byPlatform: Record<string, number> = {};
-    for (const p of completedProblems) byPlatform[p.platform] = (byPlatform[p.platform] ?? 0) + 1;
+    for (const p of completedProblems) {
+      const plat = (p.platform === "GFG" || p.platform?.toLowerCase().includes("geeks")) ? "GeeksforGeeks" : (p.platform || "DSA");
+      byPlatform[plat] = (byPlatform[plat] ?? 0) + 1;
+    }
     return { total: completedProblems.length, byPlatform };
   }, [completedProblems]);
 
@@ -435,6 +506,7 @@ export function DeveloperProfilePage() {
         bio,
         aboutMe,
         username: finalUsername,
+        email: currentEmail || undefined,
         publicStats: { totalSolved: stats.total, byPlatform: stats.byPlatform, lastUpdated: new Date().toISOString() },
         completedProblems,
       });
@@ -444,7 +516,7 @@ export function DeveloperProfilePage() {
     } finally {
       setSaving(false);
     }
-  }, [user, displayName, bio, aboutMe, usernameDraft, username, stats, completedProblems]);
+  }, [user, displayName, bio, aboutMe, usernameDraft, username, currentEmail, stats, completedProblems]);
 
   const saveCodingProfiles = useCallback(async () => {
     if (!user) return; setSaving(true);
@@ -545,140 +617,375 @@ export function DeveloperProfilePage() {
 
       {/* ── Edit Info & Upload Controls ── */}
       <section className="rounded-3xl border border-white/10 bg-card/60 backdrop-blur-xl p-6 shadow-xl space-y-4">
-        <div className="flex items-center gap-2 border-b border-white/10 pb-3">
-          <UserCircle2 className="size-5 text-primary" />
-          <h2 className="text-base font-bold text-foreground">Edit Profile Details</h2>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Avatar upload */}
-          <div className="space-y-2 rounded-2xl border border-white/10 bg-background/40 p-4">
-            <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-              <Camera className="size-3.5 text-primary" /> Profile Photo
-            </Label>
-            <div className="flex items-center gap-3">
-              <div className="size-12 overflow-hidden rounded-full border border-primary/40 bg-muted shrink-0 flex items-center justify-center">
-                {photoURL ? <img src={photoURL} alt="avatar" className="size-full object-cover" /> : <span className="font-bold text-primary">{initials}</span>}
-              </div>
-              <Button variant="outline" size="sm" className="h-8 text-xs rounded-xl" onClick={() => fileInputRef.current?.click()} disabled={uploadingAvatar}>
-                {uploadingAvatar ? "Uploading…" : "Upload Photo"}
-              </Button>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="size-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+              <UserCircle2 className="size-4" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-foreground">Edit Profile Details</h2>
+              <p className="text-[11px] text-muted-foreground">Manage your avatar, banner, bio, handle, and linked Gmail</p>
             </div>
           </div>
-
-          {/* Banner upload */}
-          <div className="space-y-2 rounded-2xl border border-white/10 bg-background/40 p-4">
-            <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-              <ImageIcon className="size-3.5 text-primary" /> Cover Banner
-            </Label>
-            <div className="flex items-center gap-3">
-              <div className="h-14 w-28 overflow-hidden rounded-xl border border-white/10 bg-muted shrink-0 relative cursor-pointer" onClick={() => bannerInputRef.current?.click()}>
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/30 to-purple-600/30" />
-                {bannerURL && <img src={bannerURL} alt="banner" className="absolute inset-0 w-full h-full object-cover" />}
-              </div>
-              <Button variant="outline" size="sm" className="h-8 text-xs rounded-xl" onClick={() => bannerInputRef.current?.click()} disabled={uploadingBanner}>
-                {uploadingBanner ? "Uploading…" : "Upload Banner"}
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Name & Bio */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="prof-name" className="text-xs font-semibold text-muted-foreground">Display Name</Label>
-            <Input id="prof-name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Your display name" className="bg-background/40 border-white/10 rounded-xl text-sm" />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="prof-bio" className="text-xs font-semibold text-muted-foreground">Bio / Target Goal</Label>
-            <Input id="prof-bio" value={bio} onChange={(e) => setBio(e.target.value)} placeholder="SDE Aspirant · Target SDE 1 role..." className="bg-background/40 border-white/10 rounded-xl text-sm" />
-          </div>
-        </div>
-
-        {/* About Me — private notes only, intentionally never rendered on the public profile card/page */}
-        <div className="space-y-1.5">
-          <Label htmlFor="prof-about-me" className="text-xs font-semibold text-muted-foreground">
-            About Me <span className="font-normal text-muted-foreground/70">— private, not shown on your public profile</span>
-          </Label>
-          <Textarea
-            id="prof-about-me"
-            value={aboutMe}
-            onChange={(e) => setAboutMe(e.target.value)}
-            placeholder="Personal notes to yourself — goals, context, reminders. Only you can see this."
-            rows={4}
-            className="bg-background/40 border-white/10 rounded-xl text-sm resize-none"
-          />
-        </div>
-
-        {/* Username */}
-        <div className="space-y-1.5">
-          <Label htmlFor="prof-username" className="text-xs font-semibold text-muted-foreground">
-            Username <span className="font-normal text-muted-foreground/70">— your public profile URL</span>
-          </Label>
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Input
-                id="prof-username"
-                value={usernameDraft}
-                onChange={(e) => setUsernameDraft(e.target.value)}
-                placeholder="e.g. alex-turner"
-                disabled={usernameSaving}
-                className={cn(
-                  "bg-background/40 border-white/10 rounded-xl text-sm pr-9",
-                  (usernameStatus === "taken" || usernameStatus === "invalid") && "border-red-500 focus-visible:ring-red-500",
-                  usernameStatus === "available" && "border-emerald-500 focus-visible:ring-emerald-500",
-                )}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && usernameStatus === "available" && !usernameSaving) saveUsername();
-                }}
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2">
-                {usernameStatus === "checking" && <RefreshCw className="size-3.5 animate-spin text-muted-foreground" />}
-                {usernameStatus === "available" && <Check className="size-3.5 text-emerald-500" />}
-                {(usernameStatus === "taken" || usernameStatus === "invalid") && <X className="size-3.5 text-red-500" />}
-              </span>
-            </div>
-            <Button
-              size="sm"
-              className={cn(
-                "gap-2 rounded-xl shrink-0 font-semibold transition-all shadow-sm",
-                normalizeUsername(usernameDraft) !== username && USERNAME_REGEX.test(normalizeUsername(usernameDraft)) && usernameStatus !== "taken"
-                  ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90 ring-2 ring-primary/40"
-                  : "bg-muted text-muted-foreground opacity-60"
-              )}
-              disabled={
-                normalizeUsername(usernameDraft) === username ||
-                !USERNAME_REGEX.test(normalizeUsername(usernameDraft)) ||
-                usernameStatus === "taken" ||
-                usernameSaving
-              }
-              onClick={saveUsername}
-            >
-              {usernameSaving ? <RefreshCw className="size-4 animate-spin" /> : <Check className="size-4" />}
-              Save Handle
-            </Button>
-          </div>
-          {usernameStatus === "taken" && (
-            <p className="text-xs text-red-500">That username is already taken — choose another.</p>
-          )}
-          {usernameStatus === "invalid" && (
-            <p className="text-xs text-red-500">3-20 characters: lowercase letters, numbers, - or _ only.</p>
-          )}
-          {usernameStatus === "available" && (
-            <p className="text-xs text-emerald-500">Available!</p>
-          )}
-          {username && usernameStatus === "idle" && (
-            <p className="text-xs text-muted-foreground">Your profile: /profile/{username}</p>
-          )}
-        </div>
-
-        <div className="flex justify-end pt-1">
-          <Button size="sm" className="gap-2 rounded-xl" onClick={saveBasicInfo} disabled={saving}>
-            {saving ? <RefreshCw className="size-4 animate-spin" /> : <Check className="size-4" />}
-            Save Profile Details
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowEditDetails((prev) => !prev)}
+            className={cn(
+              "gap-1.5 text-xs rounded-xl font-semibold transition-all shrink-0 cursor-pointer",
+              showEditDetails
+                ? "bg-primary/10 border-primary/30 text-primary hover:bg-primary/20"
+                : "bg-background/60 hover:bg-background border-white/10 text-foreground"
+            )}
+          >
+            <Pencil className="size-3.5 text-primary" />
+            {showEditDetails ? "Hide Edit Details" : "Edit Profile Details"}
+            <ChevronDown className={cn("size-3.5 transition-transform duration-200", showEditDetails && "rotate-180")} />
           </Button>
         </div>
+
+        {/* Collapsed State Preview */}
+        {!showEditDetails && (
+          <div className="rounded-2xl border border-white/5 bg-background/30 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in-50 duration-200">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="size-12 overflow-hidden rounded-full border border-primary/30 bg-muted shrink-0 flex items-center justify-center shadow-sm">
+                {photoURL ? <img src={photoURL} alt="avatar" className="size-full object-cover" /> : <span className="font-bold text-primary">{initials}</span>}
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-sm text-foreground truncate">{displayName || "Developer"}</span>
+                  {username && <span className="text-xs font-mono text-primary font-medium">@{username}</span>}
+                </div>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <Mail className="size-3.5 text-muted-foreground shrink-0" />
+                  {currentEmail ? (
+                    <span className="text-xs text-muted-foreground font-mono truncate">{currentEmail}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGmailInput("");
+                        setIsEmailModalOpen(true);
+                      }}
+                      className="text-xs text-amber-500 hover:text-amber-400 font-mono inline-flex items-center gap-1 font-semibold underline decoration-dotted cursor-pointer"
+                    >
+                      <AlertCircle className="size-3" /> No Gmail Linked — Click to enter Gmail
+                    </button>
+                  )}
+                  {currentEmail && (
+                    <Badge variant="outline" className="text-[10px] font-mono py-0 px-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                      Linked
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+              {!currentEmail && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="text-xs rounded-xl gap-1.5 h-8 font-medium cursor-pointer"
+                  onClick={() => {
+                    setGmailInput("");
+                    setIsEmailModalOpen(true);
+                  }}
+                >
+                  <AlertCircle className="size-3" /> Link Gmail
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="secondary"
+                className="text-xs rounded-xl gap-1.5 h-8 font-medium cursor-pointer"
+                onClick={() => setShowEditDetails(true)}
+              >
+                <Pencil className="size-3" /> Edit Details
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Expanded Edit Form */}
+        {showEditDetails && (
+          <div className="space-y-4 pt-1 animate-in fade-in-50 duration-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Avatar upload */}
+              <div className="space-y-2 rounded-2xl border border-white/10 bg-background/40 p-4">
+                <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <Camera className="size-3.5 text-primary" /> Profile Photo
+                </Label>
+                <div className="flex items-center gap-3">
+                  <div className="size-12 overflow-hidden rounded-full border border-primary/40 bg-muted shrink-0 flex items-center justify-center">
+                    {photoURL ? <img src={photoURL} alt="avatar" className="size-full object-cover" /> : <span className="font-bold text-primary">{initials}</span>}
+                  </div>
+                  <Button variant="outline" size="sm" className="h-8 text-xs rounded-xl cursor-pointer" onClick={() => fileInputRef.current?.click()} disabled={uploadingAvatar}>
+                    {uploadingAvatar ? "Uploading…" : "Upload Photo"}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Banner upload */}
+              <div className="space-y-2 rounded-2xl border border-white/10 bg-background/40 p-4">
+                <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <ImageIcon className="size-3.5 text-primary" /> Cover Banner
+                </Label>
+                <div className="flex items-center gap-3">
+                  <div className="h-14 w-28 overflow-hidden rounded-xl border border-white/10 bg-muted shrink-0 relative cursor-pointer" onClick={() => bannerInputRef.current?.click()}>
+                    <div className="absolute inset-0 bg-gradient-to-r from-primary/30 to-purple-600/30" />
+                    {bannerURL && <img src={bannerURL} alt="banner" className="absolute inset-0 w-full h-full object-cover" />}
+                  </div>
+                  <Button variant="outline" size="sm" className="h-8 text-xs rounded-xl cursor-pointer" onClick={() => bannerInputRef.current?.click()} disabled={uploadingBanner}>
+                    {uploadingBanner ? "Uploading…" : "Upload Banner"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Email Section */}
+            <div className="space-y-2 rounded-2xl border border-white/10 bg-background/40 p-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="prof-email" className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <Mail className="size-3.5 text-primary" /> Account Gmail
+                </Label>
+                {currentEmail ? (
+                  <Badge variant="outline" className="text-[10px] font-mono bg-emerald-500/10 text-emerald-600 border-emerald-500/30 gap-1">
+                    <Check className="size-2.5" /> Verified Gmail
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] font-mono bg-amber-500/10 text-amber-500 border-amber-500/30 gap-1 animate-pulse">
+                    <AlertCircle className="size-2.5" /> Action Required: Missing Gmail
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    id="prof-email"
+                    value={currentEmail || "No Gmail address linked"}
+                    readOnly
+                    className={cn(
+                      "bg-background/60 border-white/10 rounded-xl text-sm font-mono pr-9",
+                      !currentEmail && "text-amber-500 italic font-sans"
+                    )}
+                  />
+                  <Mail className="size-4 absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setGmailInput(currentEmail);
+                    setIsEmailModalOpen(true);
+                  }}
+                  className="rounded-xl text-xs shrink-0 font-medium hover:border-primary/40 cursor-pointer"
+                >
+                  {currentEmail ? "Update Gmail" : "Enter Valid Gmail"}
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {currentEmail
+                  ? "Your verified Gmail for daily reminders, streak alerts, and account recovery."
+                  : "Please link a valid Gmail address to receive roadmap updates and secure your account."}
+              </p>
+            </div>
+
+            {/* Name & Bio */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="prof-name" className="text-xs font-semibold text-muted-foreground">Display Name</Label>
+                <Input id="prof-name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Your display name" className="bg-background/40 border-white/10 rounded-xl text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="prof-bio" className="text-xs font-semibold text-muted-foreground">Bio / Target Goal</Label>
+                <Input id="prof-bio" value={bio} onChange={(e) => setBio(e.target.value)} placeholder="SDE Aspirant · Target SDE 1 role..." className="bg-background/40 border-white/10 rounded-xl text-sm" />
+              </div>
+            </div>
+
+            {/* About Me */}
+            <div className="space-y-1.5">
+              <Label htmlFor="prof-about-me" className="text-xs font-semibold text-muted-foreground">
+                About Me <span className="font-normal text-muted-foreground/70">— private, not shown on your public profile</span>
+              </Label>
+              <Textarea
+                id="prof-about-me"
+                value={aboutMe}
+                onChange={(e) => setAboutMe(e.target.value)}
+                placeholder="Personal notes to yourself — goals, context, reminders. Only you can see this."
+                rows={4}
+                className="bg-background/40 border-white/10 rounded-xl text-sm resize-none"
+              />
+            </div>
+
+            {/* Username */}
+            <div className="space-y-1.5">
+              <Label htmlFor="prof-username" className="text-xs font-semibold text-muted-foreground">
+                Username <span className="font-normal text-muted-foreground/70">— your public profile URL</span>
+              </Label>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    id="prof-username"
+                    value={usernameDraft}
+                    onChange={(e) => setUsernameDraft(e.target.value)}
+                    placeholder="e.g. alex-turner"
+                    disabled={usernameSaving}
+                    className={cn(
+                      "bg-background/40 border-white/10 rounded-xl text-sm pr-9",
+                      (usernameStatus === "taken" || usernameStatus === "invalid") && "border-red-500 focus-visible:ring-red-500",
+                      usernameStatus === "available" && "border-emerald-500 focus-visible:ring-emerald-500",
+                    )}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && usernameStatus === "available" && !usernameSaving) saveUsername();
+                    }}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {usernameStatus === "checking" && <RefreshCw className="size-3.5 animate-spin text-muted-foreground" />}
+                    {usernameStatus === "available" && <Check className="size-3.5 text-emerald-500" />}
+                    {(usernameStatus === "taken" || usernameStatus === "invalid") && <X className="size-3.5 text-red-500" />}
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  className={cn(
+                    "gap-2 rounded-xl shrink-0 font-semibold transition-all shadow-sm cursor-pointer",
+                    normalizeUsername(usernameDraft) !== username && USERNAME_REGEX.test(normalizeUsername(usernameDraft)) && usernameStatus !== "taken"
+                      ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90 ring-2 ring-primary/40"
+                      : "bg-muted text-muted-foreground opacity-60"
+                  )}
+                  disabled={
+                    normalizeUsername(usernameDraft) === username ||
+                    !USERNAME_REGEX.test(normalizeUsername(usernameDraft)) ||
+                    usernameStatus === "taken" ||
+                    usernameSaving
+                  }
+                  onClick={saveUsername}
+                >
+                  {usernameSaving ? <RefreshCw className="size-4 animate-spin" /> : <Check className="size-4" />}
+                  Save Handle
+                </Button>
+              </div>
+              {usernameStatus === "taken" && (
+                <p className="text-xs text-red-500">That username is already taken — choose another.</p>
+              )}
+              {usernameStatus === "invalid" && (
+                <p className="text-xs text-red-500">3-20 characters: lowercase letters, numbers, - or _ only.</p>
+              )}
+              {usernameStatus === "available" && (
+                <p className="text-xs text-emerald-500">Available!</p>
+              )}
+              {username && usernameStatus === "idle" && (
+                <p className="text-xs text-muted-foreground">Your profile: /profile/{username}</p>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <Button size="sm" className="gap-2 rounded-xl cursor-pointer" onClick={saveBasicInfo} disabled={saving}>
+                {saving ? <RefreshCw className="size-4 animate-spin" /> : <Check className="size-4" />}
+                Save Profile Details
+              </Button>
+            </div>
+          </div>
+        )}
       </section>
+
+      {/* ── Enter Valid Gmail Pop-up Modal ── */}
+      <Dialog open={isEmailModalOpen} onOpenChange={setIsEmailModalOpen}>
+        <DialogContent className="max-w-md border-white/10 bg-card/95 backdrop-blur-xl rounded-2xl shadow-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5 mb-1">
+              <div className="size-9 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary shrink-0">
+                <Mail className="size-4" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold text-foreground">
+                  {currentEmail ? "Update Your Gmail Address" : "Enter Valid Gmail Address"}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                  Link your active Gmail account for notifications and recovery
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-3.5 py-2">
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-foreground/80 space-y-1">
+              <p className="font-semibold text-primary flex items-center gap-1.5">
+                <Sparkles className="size-3.5" /> Gmail Requirement
+              </p>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Please enter a valid Gmail address (ending in <strong className="text-foreground">@gmail.com</strong>) to sync with daily alerts and roadmap delivery.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="gmail-input" className="text-xs font-semibold text-muted-foreground">
+                Gmail Address
+              </Label>
+              <div className="relative">
+                <Input
+                  id="gmail-input"
+                  type="email"
+                  placeholder="yourname@gmail.com"
+                  value={gmailInput}
+                  onChange={(e) => setGmailInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && /^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(gmailInput.trim())) {
+                      handleSaveGmail();
+                    }
+                  }}
+                  className="bg-background/60 border-white/10 rounded-xl text-sm font-mono pr-9"
+                  autoFocus
+                />
+                <Mail className="size-4 absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              </div>
+              {gmailInput && !/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(gmailInput.trim()) && (
+                <p className="text-[11px] text-amber-500 flex items-center gap-1">
+                  <AlertCircle className="size-3 shrink-0" /> Must be a valid address ending with @gmail.com
+                </p>
+              )}
+              {gmailInput && /^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(gmailInput.trim()) && (
+                <p className="text-[11px] text-emerald-500 flex items-center gap-1">
+                  <Check className="size-3 shrink-0" /> Valid Gmail format!
+                </p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="rounded-xl text-xs cursor-pointer"
+              onClick={() => setIsEmailModalOpen(false)}
+              disabled={savingEmail}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="rounded-xl text-xs gap-1.5 font-semibold bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+              disabled={savingEmail || !gmailInput.trim() || !/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(gmailInput.trim())}
+              onClick={handleSaveGmail}
+            >
+              {savingEmail ? (
+                <>
+                  <RefreshCw className="size-3.5 animate-spin" /> Saving...
+                </>
+              ) : (
+                <>
+                  <Check className="size-3.5" /> Save Gmail Address
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Multi-Platform Coding Profile Integration Dashboard ── */}
       <UnifiedProfileDashboard
@@ -750,7 +1057,9 @@ export function DeveloperProfilePage() {
             {completedProblems.map((p, idx) => (
               <div key={`${p.name}-${idx}`} className="flex flex-col justify-between rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 space-y-3 transition-all hover:-translate-y-0.5 hover:shadow-lg">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400 uppercase">{p.platform}</span>
+                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400 uppercase">
+                    {p.platform === "GFG" ? "GeeksforGeeks" : p.platform}
+                  </span>
                   <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">{p.difficulty}</span>
                 </div>
                 <h4 className="text-xs font-bold text-foreground line-clamp-2">{p.name}</h4>

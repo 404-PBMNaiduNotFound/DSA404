@@ -46,7 +46,9 @@ import {
   Sparkles,
   Search,
   Megaphone,
+  Globe,
 } from "lucide-react";
+import { loadUserProfile } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import { useThemeCustomizer } from "../../app/theme-customizer-context";
 import { ThemeCustomizerPanel } from "../../app/theme-customizer-panel";
@@ -75,10 +77,10 @@ const SIDEBAR_STORAGE_KEY = "dsa-sidebar-width";
 
 // ─── Desktop Sidebar (resizable) ──────────────────────────────────────────────
 function DesktopSidebar({
-  pathname, email, streak, lastSynced, displayName, initials, photoURL, onSignOut, width, onWidthChange,
+  pathname, email, streak, lastSynced, displayName, initials, photoURL, username, onSignOut, width, onWidthChange,
 }: {
   pathname: string; email: string; streak: number; lastSynced: string | null;
-  displayName: string; initials: string; photoURL?: string | null;
+  displayName: string; initials: string; photoURL?: string | null; username?: string;
   onSignOut: () => void; width: number; onWidthChange: (w: number) => void;
 }) {
   const { openPanel } = useThemeCustomizer();
@@ -153,7 +155,7 @@ function DesktopSidebar({
             {!collapsed && (
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold truncate">{displayName}</p>
-                <p className="text-[10px] text-muted-foreground truncate">{email}</p>
+                <p className="text-[10px] font-mono text-primary font-medium truncate">@{username || (email ? email.split("@")[0] : "user")}</p>
               </div>
             )}
           </Link>
@@ -227,6 +229,11 @@ function DesktopSidebar({
             <DropdownMenuContent side="right" align="end" className="w-56">
               <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">{email}</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href={username ? `/profile/${username}` : "/profile"}>
+                  <Globe className="mr-2 size-4 text-primary" /> Public Portfolio (@{username || "you"})
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="/progress"><Flame className="mr-2 size-4 text-orange-500" /> Progress</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="/today"><Sparkles className="mr-2 size-4" /> Today's Workspace</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="/settings"><Settings className="mr-2 size-4" /> Settings</Link></DropdownMenuItem>
@@ -262,10 +269,10 @@ function DesktopSidebar({
 
 // ─── Mobile Drawer ─────────────────────────────────────────────────────────────
 function MobileDrawer({
-  open, onClose, pathname, email, streak, lastSynced, displayName, initials, photoURL, onSignOut,
+  open, onClose, pathname, email, streak, lastSynced, displayName, initials, photoURL, username, onSignOut,
 }: {
   open: boolean; onClose: () => void; pathname: string; email: string; streak: number;
-  lastSynced: string | null; displayName: string; initials: string; photoURL?: string | null;
+  lastSynced: string | null; displayName: string; initials: string; photoURL?: string | null; username?: string;
   onSignOut: () => void;
 }) {
   const { openPanel } = useThemeCustomizer();
@@ -301,8 +308,8 @@ function MobileDrawer({
               {photoURL ? <img src={photoURL} alt="avatar" className="size-full object-cover" /> : <span className="text-lg font-bold text-primary">{initials}</span>}
             </div>
             <div className="min-w-0">
-              <p className="font-semibold text-sm truncate">{displayName}</p>
-              <p className="text-[11px] text-muted-foreground truncate">{email}</p>
+              <p className="font-semibold text-sm truncate text-foreground">{displayName}</p>
+              <p className="text-[11px] font-mono text-primary font-medium truncate">@{username || (email ? email.split("@")[0] : "user")}</p>
             </div>
           </Link>
           <div className="mt-3.5 flex flex-wrap items-center gap-2">
@@ -368,6 +375,11 @@ function MobileDrawer({
             <DropdownMenuContent side="right" align="end" className="w-56">
               <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">{email}</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href={username ? `/profile/${username}` : "/profile"} onClick={onClose}>
+                  <Globe className="mr-2 size-4 text-primary" /> Public Portfolio (@{username || "you"})
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="/progress" onClick={onClose}><Flame className="mr-2 size-4 text-orange-500" /> Progress</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="/profile" onClick={onClose}><UserCircle2 className="mr-2 size-4" /> Profile</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="/settings" onClick={onClose}><Settings className="mr-2 size-4" /> Settings</Link></DropdownMenuItem>
@@ -396,6 +408,19 @@ export function AppShell({ email, children }: { email: string; children: React.R
   const pathname = usePathname();
   const qc = useQueryClient();
   const streak = currentStreak(days);
+
+  const [username, setUsername] = useState<string>("");
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    let active = true;
+    loadUserProfile(user.uid).then((p) => {
+      if (active && p?.username) {
+        setUsername(p.username);
+      }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [user?.uid]);
 
   const displayName = user?.displayName || email?.split("@")[0] || "Developer";
   const initials = displayName[0]?.toUpperCase() ?? "?";
@@ -458,7 +483,7 @@ export function AppShell({ email, children }: { email: string; children: React.R
   }
 
   const sharedProps = {
-    pathname, email, streak, lastSynced, displayName, initials, photoURL,
+    pathname, email, streak, lastSynced, displayName, initials, photoURL, username,
     onSignOut: () => void signOut(),
   };
 
@@ -517,6 +542,11 @@ export function AppShell({ email, children }: { email: string; children: React.R
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">{email}</DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href={username ? `/profile/${username}` : "/profile"}>
+                        <Globe className="mr-2 size-4 text-primary" /> Public Portfolio (@{username || "you"})
+                      </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuItem asChild><Link href="/progress"><Flame className="mr-2 size-4 text-orange-500" /> Progress</Link></DropdownMenuItem>
                     <DropdownMenuItem asChild><Link href="/today"><Sparkles className="mr-2 size-4" /> Today's Workspace</Link></DropdownMenuItem>
                     <DropdownMenuItem asChild><Link href="/settings"><Settings className="mr-2 size-4" /> Settings</Link></DropdownMenuItem>

@@ -2,7 +2,7 @@ import { SECTIONS } from "@/lib/a2z-data";
 import { EXTRA_PROBLEMS, type Sheet } from "@/lib/extra-problems-data";
 import type { Difficulty } from "@/lib/types";
 
-export type Platform = "All" | "LeetCode" | "GFG" | "HackerRank" | "CodeStudio";
+export type Platform = "All" | "LeetCode" | "GeeksforGeeks" | "GFG" | "HackerRank" | "CodeStudio";
 export type SheetFilter = "All" | "Core 404" | Sheet;
 
 export interface FlatProblem {
@@ -16,7 +16,7 @@ export interface FlatProblem {
 
 function canonicalPlatform(p: string): Platform {
   if (p === "LC" || p === "LeetCode") return "LeetCode";
-  if (p === "GFG" || p === "GeeksforGeeks") return "GFG";
+  if (p === "GFG" || p === "GeeksforGeeks") return "GeeksforGeeks";
   if (p === "HR" || p === "HackerRank") return "HackerRank";
   if (p === "CS" || p === "CodeStudio") return "CodeStudio";
   return "LeetCode";
