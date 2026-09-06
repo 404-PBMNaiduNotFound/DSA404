@@ -63,7 +63,7 @@ const NAV = [
   { to: "/review", label: "Review", icon: BookmarkCheck, hint: "Problems you bookmarked for a second look — sorted by day and section." },
   { to: "/backlog", label: "Backlog", icon: CalendarDays, hint: "Past days you haven't fully completed. Insert a revision day to catch up." },
   { to: "/contests", label: "Contests", icon: Trophy, hint: "Live, upcoming & missed CP contests from LeetCode, Codeforces, CodeChef, AtCoder, HackerRank." },
-  { to: "/profile", label: "Developer Profile", icon: UserCircle2, hint: "Edit your avatar, banner, display name, bio, and coding platform handles." },
+  { to: "/profile", label: "Coder Profile", icon: UserCircle2, hint: "Edit your avatar, banner, display name, bio, and coding platform handles." },
   { to: "/settings", label: "Settings", icon: Settings, hint: "Adjust daily pace, shift schedule, pause plan, change password or theme." },
 ] as const;
 
@@ -243,6 +243,19 @@ function DesktopSidebar({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {!collapsed && (
+            <div className="pt-2 px-1 text-[10px] text-muted-foreground/75 leading-tight select-none border-t border-border/30 mt-1">
+              <p>Created by <span className="text-foreground font-semibold">Bhanu</span></p>
+              <a
+                href="https://dsa404.vercel.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[9px] text-primary/80 hover:text-primary hover:underline font-mono inline-block mt-0.5"
+              >
+              </a>
+            </div>
+          )}
         </div>
       </div>
 
@@ -389,6 +402,20 @@ function MobileDrawer({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <div className="pt-2.5 px-1 border-t border-border/40 text-[10px] text-muted-foreground/80 leading-tight select-none mt-1">
+            <p className="font-semibold text-foreground">Created by Bhanu</p>
+            <p className="text-[9px] text-muted-foreground/70 leading-tight mt-0.5">
+              🚀 DSA404 — a platform to help students organize and stay consistent with their DSA preparation.
+            </p>
+            <a
+              href="https://dsa404.vercel.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[9px] text-primary hover:underline font-mono inline-block mt-1"
+            >
+            </a>
+          </div>
         </div>
       </aside>
     </>
@@ -418,11 +445,11 @@ export function AppShell({ email, children }: { email: string; children: React.R
       if (active && p?.username) {
         setUsername(p.username);
       }
-    }).catch(() => {});
+    }).catch(() => { });
     return () => { active = false; };
   }, [user?.uid]);
 
-  const displayName = user?.displayName || email?.split("@")[0] || "Developer";
+  const displayName = user?.displayName || email?.split("@")[0] || "Coder";
   const initials = displayName[0]?.toUpperCase() ?? "?";
   const photoURL = user?.photoURL;
 

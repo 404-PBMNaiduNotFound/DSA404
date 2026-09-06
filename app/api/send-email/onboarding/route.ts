@@ -88,7 +88,7 @@ Happy Coding!
    - for contests reminders will be sent on that day,before 1hr and 10 mins of the contest starts.
    - you can change the name password and Delete account completely.
    
-2.Developer profile tab
+2. Coder Profile tab
    - Public Profile & Coding Handles:
    - Update your bio profile pic, goal and Banner.
    - After all changes in profile click on save button.
@@ -177,7 +177,7 @@ Save/Print this guide as a PDF for offline reference anytime!
       </ul>
     </div>
 
-    <h3>2. Developer Profile Tab</h3>
+    <h3>2. Coder Profile Tab</h3>
     <div class="feature-item">
       <div class="feature-title">Public Profile & Coding Handles</div>
       <ul>

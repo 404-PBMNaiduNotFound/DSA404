@@ -39,7 +39,7 @@ const MOTIVATIONAL_QUOTES = [
   "A bug is just a puzzle waiting to be solved. Don't give up!",
   "The expert in anything was once a beginner. Keep pushing forward.",
   "Your streak is a reflection of your discipline. Maintain it!",
-  "Every problem you solve today makes you a better developer tomorrow.",
+  "Every problem you solve today makes you a better coder tomorrow.",
   "Success is the sum of small efforts, repeated day in and day out.",
   "DSA is hard, but so are you. Keep grinding!",
   "Don't practice until you get it right. Practice until you can't get it wrong.",

@@ -74,7 +74,7 @@ const DEMO_NAV = [
   { key: "review", label: "Review", icon: BookmarkCheck },
   { key: "backlog", label: "Backlog", icon: CalendarDays },
   { key: "contests", label: "Contests", icon: Trophy },
-  { key: "profile", label: "Developer Profile", icon: UserCircle2 },
+  { key: "profile", label: "Coder Profile", icon: UserCircle2 },
   { key: "settings", label: "Settings", icon: Settings },
 ] as const;
 
@@ -714,7 +714,7 @@ const PRESET_PROFILES: Record<string, ExtractedPlatformState> = {
     extraStatVal: "34 Repos",
     accentColor: "text-purple-500",
     accentBg: "bg-purple-500/10 border-purple-500/20",
-    badge: "Verified Developer",
+    badge: "Verified Coder",
   },
 };
 
@@ -997,7 +997,7 @@ function ProfilePanel() {
               <Globe className="size-4" />
             </span>
             <div>
-              <p className="font-semibold text-xs text-foreground">Shareable Public Developer Profile URL</p>
+              <p className="font-semibold text-xs text-foreground">Shareable Public Coder Profile URL</p>
               <p className="font-mono text-[11px] text-muted-foreground">
                 Your portfolio at <span className="text-primary font-semibold">404dsatracker.com/profile/aditisharma_codes</span> aggregates all platforms automatically!
               </p>

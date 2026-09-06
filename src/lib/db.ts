@@ -287,7 +287,7 @@ export async function loadUserProfile(uid: string): Promise<Partial<UserProfile>
  * Owner-only profile read: everything loadUserProfile returns, PLUS the
  * private `aboutMe` field (pulled from users/{uid}/private/profile, which
  * Firestore rules restrict to isOwner(uid)). Use this on self-edit screens
- * (Settings, DeveloperProfilePage, MergedTodayProfile) — never on the public
+ * (Settings, CoderProfilePage, MergedTodayProfile) — never on the public
  * profile route.
  */
 export async function loadOwnerProfile(uid: string): Promise<Partial<UserProfile>> {

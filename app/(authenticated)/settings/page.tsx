@@ -891,6 +891,22 @@ export default function SettingsPage() {
           ))}
         </div>
       </Section>
+
+      <div className="mt-8 pt-6 border-t border-border/60 text-center space-y-2 pb-6">
+        <p className="text-sm font-semibold text-foreground">
+          🚀 DSA404 — a platform to help students organize and stay consistent with their DSA preparation.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Created by <span className="font-bold text-foreground">Bhanu</span> ·{" "}
+          <a
+            href="https://dsa404.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline font-mono inline-flex items-center gap-1 font-semibold"
+          >
+          </a>
+        </p>
+      </div>
     </>
   );
 }

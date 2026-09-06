@@ -45,7 +45,7 @@ interface DeepNavItem {
 
 const FEATURE_ITEMS: DeepNavItem[] = [
   {
-    label: "Developer Profile & Handles",
+    label: "Coder Profile & Handles",
     href: "/today?tab=profile",
     icon: UserCircle2,
     desc: "View and edit coding handles (LeetCode, Codeforces, GFG) and custom links",

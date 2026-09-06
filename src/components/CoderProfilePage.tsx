@@ -149,7 +149,7 @@ function ThemedTooltip({ hint, children }: { hint: string; children: React.React
 }
 
 // ── Main Component ───────────────────────────────────────────────────────────
-export function DeveloperProfilePage() {
+export function CoderProfilePage() {
   const { user } = useAuth();
   const { days, loading } = usePlan();
   const { completed: pbCompleted, submissions } = useProblemCompletions();
@@ -535,8 +535,8 @@ export function DeveloperProfilePage() {
     catch { toast.error("Could not copy link"); }
   }, [shareUrl]);
 
-  const userNameDisplay = displayName || user?.displayName || user?.email?.split("@")[0] || "Developer";
-  const initials = userNameDisplay[0]?.toUpperCase() ?? "D";
+  const userNameDisplay = displayName || user?.displayName || user?.email?.split("@")[0] || "Coder";
+  const initials = userNameDisplay[0]?.toUpperCase() ?? "C";
 
   if (loading || loadingProfile) {
     return (
@@ -654,7 +654,7 @@ export function DeveloperProfilePage() {
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-sm text-foreground truncate">{displayName || "Developer"}</span>
+                  <span className="font-semibold text-sm text-foreground truncate">{displayName || "Coder"}</span>
                   {username && <span className="text-xs font-mono text-primary font-medium">@{username}</span>}
                 </div>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">

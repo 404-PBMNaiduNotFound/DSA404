@@ -186,7 +186,7 @@ export function MergedTodayProfile() {
   // Streak — standard derived streak from active plan days
   const streakCount = useMemo(() => currentStreak(days), [days]);
 
-  const userNameDisplay = displayName || user?.displayName || user?.email?.split("@")[0] || "Developer";
+  const userNameDisplay = displayName || user?.displayName || user?.email?.split("@")[0] || "Coder";
 
   const timeBasedGreeting = useMemo(() => {
     const hour = new Date().getHours();

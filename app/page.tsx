@@ -584,7 +584,7 @@ function HeroSection() {
               Already know a topic? <b>Skip it from the Topic View.</b> Changed your mind later?
               You can <b>unskip it anytime</b> and bring it back into your roadmap.
               <br /><br />
-              <b>The Goal Isn't “404 Problems.”</b>
+              <b>The Goal Isn't “404 || more Problems.”</b>
               <br />
               The goal is to know the <b>patterns.</b>
               <br />
@@ -1099,10 +1099,41 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="border-t border-border/50 py-6 mt-12">
-        <p className="text-center text-xs text-muted-foreground font-mono">
-          DSA⁴⁰⁴ · Built for structured, consistent DSA practice
-        </p>
+      <footer className="border-t border-border/50 py-10 mt-16 bg-muted/20">
+        <div className="mx-auto max-w-6xl px-4 flex flex-col items-center justify-center text-center gap-3">
+          <div className="flex items-center gap-2">
+            <div className="size-6 rounded-full overflow-hidden border border-border/80 shadow-xs ring-1 ring-primary/20 bg-background shrink-0">
+              <img src="/logo.jpg" alt="DSA404 Logo" className="size-full object-cover" />
+            </div>
+            <span className="font-display font-black tracking-tight text-base">
+              DSA<span className="text-primary font-bold ml-0.5">⁴⁰⁴</span>
+            </span>
+          </div>
+
+          <p className="text-sm sm:text-base font-semibold text-foreground max-w-xl leading-relaxed">
+            🚀 DSA404 — a platform to help students organize and stay consistent with their DSA preparation.
+          </p>
+
+          <p className="text-xs sm:text-sm text-muted-foreground font-medium">
+            Created by <span className="font-bold text-foreground underline decoration-primary decoration-2 underline-offset-2">Bhanu</span>
+          </p>
+
+          <div className="flex items-center gap-2 pt-0.5 font-mono text-xs">
+            <a
+              href="https://dsa404.vercel.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1 text-primary hover:bg-primary/20 hover:border-primary/50 transition-all shadow-xs font-semibold"
+            >
+              <span>dsa404.vercel.app</span>
+              <ExternalLink className="size-3" />
+            </a>
+          </div>
+
+          <p className="text-[11px] text-muted-foreground/60 font-mono pt-2">
+            © {new Date().getFullYear()} DSA⁴⁰⁴ · Built for structured, consistent DSA practice
+          </p>
+        </div>
       </footer>
 
       <ChromeInstallModal
