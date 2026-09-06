@@ -29,7 +29,9 @@ import {
   Bot,
   Laptop,
   Globe,
+  Download,
 } from "lucide-react";
+import { toast } from "sonner";
 import { InstallApkSection } from "@/components/InstallApkSection";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 import { ChromeInstallModal } from "@/components/ChromeInstallModal";
@@ -126,10 +128,56 @@ function StatsBar() {
   const cUsers = useCountUp(liveUserCount ?? 0);
   const cIntegrations = useCountUp(3);
 
+  const downloadCore404Sheets = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    toast.success("Downloading Core 404 Sheet...", {
+      description: "Both PDF and Excel (.xlsx) versions are being downloaded.",
+      duration: 4500,
+    });
+
+    // 1. Download PDF version
+    const pdfLink = document.createElement("a");
+    pdfLink.href = "/Core404_Problems_Grouped_By_Pattern.pdf";
+    pdfLink.download = "Core404_Problems_Grouped_By_Pattern.pdf";
+    document.body.appendChild(pdfLink);
+    pdfLink.click();
+    document.body.removeChild(pdfLink);
+
+    // 2. Download Excel version (delayed slightly for browser multi-file download handling)
+    setTimeout(() => {
+      const excelLink = document.createElement("a");
+      excelLink.href = "/Core404_Problems_Grouped_By_Pattern.xlsx";
+      excelLink.download = "Core404_Problems_Grouped_By_Pattern.xlsx";
+      document.body.appendChild(excelLink);
+      excelLink.click();
+      document.body.removeChild(excelLink);
+    }, 350);
+  };
+
+  const downloadSingle = (e: React.MouseEvent, type: "pdf" | "excel") => {
+    e.preventDefault();
+    e.stopPropagation();
+    const isPdf = type === "pdf";
+    const link = document.createElement("a");
+    link.href = isPdf ? "/Core404_Problems_Grouped_By_Pattern.pdf" : "/Core404_Problems_Grouped_By_Pattern.xlsx";
+    link.download = isPdf ? "Core404_Problems_Grouped_By_Pattern.pdf" : "Core404_Problems_Grouped_By_Pattern.xlsx";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast.success(`Downloading Core 404 ${isPdf ? "PDF" : "Excel"} Sheet...`);
+  };
+
   const stats = [
     ...(liveUserCount !== null
       ? [
         {
+          id: "users",
+          isSheetsCard: false,
           ref: cUsers,
           value: liveUserCount,
           label: "Learners tracking progress",
@@ -144,18 +192,22 @@ function StatsBar() {
       ]
       : []),
     {
+      id: "sheets",
+      isSheetsCard: true,
       ref: cTotal,
       value: COMBINED_TOTAL_PROBLEMS,
       label: "Curated Sheets & CP Rounds",
       sub: `${REAL_TOTAL_PROBLEMS} Core 404 · ${REAL_PRACTICE_PROBLEMS_COUNT} Practice Sheet · CP rounds`,
       prefix: "",
-      tag: "TOP_TIER",
+      tag: "CORE_404",
       tagColor: "text-amber-500 bg-amber-500/10 border-amber-500/30",
       icon: Trophy,
       iconColor: "text-amber-600 dark:text-amber-400",
       iconBg: "bg-amber-500/10",
     },
     {
+      id: "portfolio",
+      isSheetsCard: false,
       ref: undefined,
       value: "1-Click",
       label: "Public Profile Showcase",
@@ -168,6 +220,8 @@ function StatsBar() {
       iconBg: "bg-blue-500/10",
     },
     {
+      id: "patterns",
+      isSheetsCard: false,
       ref: cPatterns,
       value: REAL_PATTERNS_COUNT,
       label: `Patterns & ${REAL_SECTIONS_COUNT} Sections`,
@@ -180,6 +234,8 @@ function StatsBar() {
       iconBg: "bg-purple-500/10",
     },
     {
+      id: "platforms",
+      isSheetsCard: false,
       ref: undefined,
       value: "6+ Platforms",
       label: "Unified Coding Hub",
@@ -192,6 +248,8 @@ function StatsBar() {
       iconBg: "bg-cyan-500/10",
     },
     {
+      id: "integrations",
+      isSheetsCard: false,
       ref: cIntegrations,
       value: 3,
       label: "Built-in Integrations",
@@ -206,38 +264,87 @@ function StatsBar() {
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full">
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full items-stretch">
       {stats.map((s, idx) => {
         const Icon = s.icon;
+        const isSheets = s.isSheetsCard;
 
         return (
           <div
             key={s.label}
-            className="group relative overflow-hidden rounded-xl bg-card border border-border p-3.5 shadow-sm transition-colors duration-200 hover:border-primary/60 hover:shadow-md cursor-pointer"
+            onClick={isSheets ? () => downloadCore404Sheets() : undefined}
+            title={isSheets ? "Click here to download Core 404 Sheet (PDF & Excel)" : undefined}
+            className={cn(
+              "group relative overflow-hidden rounded-xl bg-card border border-border p-3.5 shadow-sm transition-all duration-200 hover:border-primary/60 hover:shadow-md flex flex-col justify-between h-full",
+              isSheets && "hover:border-amber-500/70 dark:hover:border-amber-400/70 ring-1 ring-amber-500/20 cursor-pointer"
+            )}
           >
             {/* Subtle Code Gradient Glow Backdrop on Hover */}
             <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-amber-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
-            <div className="flex items-center justify-between mb-2">
-              <div className={`inline-flex size-8 items-center justify-center rounded-lg ${s.iconBg} transition-transform duration-300`}>
-                <Icon className={`size-4 ${s.iconColor}`} />
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className={`inline-flex size-8 items-center justify-center rounded-lg ${s.iconBg} transition-transform duration-300`}>
+                  <Icon className={`size-4 ${s.iconColor}`} />
+                </div>
+
+                {/* Animated Coding Tag Badge */}
+                <div className="flex items-center gap-1">
+                  {idx === 0 && <span className="size-2 rounded-full bg-rose-500 animate-ping" />}
+                  <span className={`font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${s.tagColor}`}>
+                    {s.tag}
+                  </span>
+                </div>
               </div>
 
-              {/* Animated Coding Tag Badge */}
-              <div className="flex items-center gap-1">
-                {idx === 0 && <span className="size-2 rounded-full bg-rose-500 animate-ping" />}
-                <span className={`font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${s.tagColor}`}>
-                  {s.tag}
-                </span>
-              </div>
+              <p className="font-mono text-2xl font-black text-foreground tabular-nums leading-none tracking-tight group-hover:text-primary transition-colors">
+                {s.prefix}
+                {s.ref ? <span ref={s.ref}>{s.value}</span> : <span>{s.value}</span>}
+              </p>
+              <p className="mt-1 text-xs font-semibold text-foreground truncate">{s.label}</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground line-clamp-2 leading-tight">{s.sub}</p>
             </div>
 
-            <p className="font-mono text-2xl font-black text-foreground tabular-nums leading-none tracking-tight group-hover:text-primary transition-colors">
-              {s.prefix}
-              {s.ref ? <span ref={s.ref}>{s.value}</span> : <span>{s.value}</span>}
-            </p>
-            <p className="mt-1 text-xs font-semibold text-foreground truncate">{s.label}</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground line-clamp-2 leading-tight">{s.sub}</p>
+            {/* If this is the Sheets Card: Prominent Download Action Section */}
+            {isSheets && (
+              <div className="mt-3 pt-2.5 border-t border-border/60">
+                <button
+                  type="button"
+                  onClick={(e) => downloadCore404Sheets(e)}
+                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-400/15 dark:hover:bg-amber-400/25 border border-amber-500/30 hover:border-amber-500/50 py-1.5 px-2 text-[11px] font-bold text-amber-600 dark:text-amber-400 transition-all duration-200 shadow-xs active:scale-[0.98] cursor-pointer"
+                  title="Click to automatically download Core 404 Sheet in both PDF and Excel formats"
+                >
+                  <Download className="size-3.5 shrink-0 animate-bounce" />
+                  <span className="font-sans font-bold text-[11px] leading-tight text-center">
+                    Click here to download core404 sheet
+                  </span>
+                </button>
+
+                <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1 text-[10px] text-muted-foreground">
+                  <span className="text-[10px] text-muted-foreground/90 font-medium">
+                    ⚡ Auto-downloads PDF &amp; Excel
+                  </span>
+                  <div className="flex items-center gap-1 font-mono text-[9px] shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => downloadSingle(e, "pdf")}
+                      className="px-1.5 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-bold border border-rose-500/20 transition-colors cursor-pointer"
+                      title="Download PDF version only"
+                    >
+                      PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => downloadSingle(e, "excel")}
+                      className="px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 transition-colors cursor-pointer"
+                      title="Download Excel (.xlsx) version only"
+                    >
+                      XLSX
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
       })}
